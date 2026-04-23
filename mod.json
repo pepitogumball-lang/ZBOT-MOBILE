@@ -18,11 +18,11 @@
 	],
 	"resources": {
 		"files": [
-			"resources/*.ttf",
-			"resources/*.zip"
+			"resources/*.png"
 		]
 	},
 	"settings": {
 	},
 	"early-load": true
 }
+
