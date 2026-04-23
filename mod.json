@@ -1,0 +1,28 @@
+{
+	"geode": "4.0.0",
+	"gd": {
+		"win": "2.2074",
+		"android": "2.206"
+	},
+	"version": "v1.0.0",
+	"id": "pepitogumball.zbot_mobile",
+	"name": "ZBOT-MOBILE",
+	"developer": "pepitogumball",
+	"description": "ZBOT BUT MOBILE (WORK IN PROGRESS) - A remastered version of zBot for Android and Windows.",
+	"dependencies": [
+		{
+			"id": "geode.custom-keybinds",
+			"version": "v1.10.0",
+			"importance": "required"
+		}
+	],
+	"resources": {
+		"files": [
+			"resources/*.ttf",
+			"resources/*.zip"
+		]
+	},
+	"settings": {
+	},
+	"early-load": true
+}
