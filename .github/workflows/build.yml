@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build the mod
-        uses: geode-sdk/build-geode-mod@v3
+        uses: geode-sdk/build-geode-mod@v1
         with:
           combine: true
           target: ${{ matrix.config.target }}
@@ -42,7 +42,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Combine builds
-        uses: geode-sdk/build-geode-mod/combine@main
+        uses: geode-sdk/build-geode-mod/combine@v1
         id: build
 
       - name: Create Release
@@ -56,4 +56,3 @@ jobs:
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
