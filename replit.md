@@ -97,14 +97,20 @@ on every push to `main`. Drop the produced `.geode` file into:
   - `mod.json`: bumped version to `v1.2.0`.
 - 2026-04-24: v1.3.0 persistent settings + macro metadata.
   - `src/zBot.hpp`: added `loadSettings()` / `saveSettings()` that
-    round-trip every user-visible flag through Geode's per-mod save
-    store (`Mod::get()->{get,set}SavedValue`).
+    round-trip every user-visible flag (`speedHackEnabled`,
+    `speedHackAudio`, `speed`, `autoSafeMode`, `clickbotEnabled`,
+    `autoSave`, `perfectRunOnly`, `dedupeInputs`) through Geode's
+    per-mod save store (`Mod::get()->{get,set}SavedValue`). Defaults
+    fall back to the in-class initialisers so first-time users still
+    get the safe perfect-run-only setup.
   - `src/replay.hpp`: added `MacroFileInfo` struct + `listSavedDetailed()`
     so the saved-macros list can show file size and last-modified date
     without parsing each `.gdr`.
   - `src/gui.hpp` / `src/gui.cpp`: macro list now shows each macro's
     size + date next to the name. Settings tab, Speed tab, and Macro
-    quality toggles all persist on change. The floating ball's
+    quality toggles all persist on change (batched via per-tab dirty
+    flags so only one save call fires per frame). The floating ball's
     position is also persisted (saved on drag-release, restored at
-    setup). Header bumped to v1.3.0.
+    setup via `Mod::get()->getSavedValue<double>`). Header bumped to
+    v1.3.0.
   - `mod.json`, `web/index.html`: bumped to v1.3.0 + updated copy.

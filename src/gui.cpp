@@ -169,6 +169,8 @@ void GUI::renderFloatingBall() {
             visible = !visible;
         } else {
             // Persist the new ball position so it survives a relaunch.
+            // Save only on drag-release so we don't hammer the save
+            // file with one write per mouse-move event.
             auto m = Mod::get();
             m->setSavedValue<double>("ballPosX", static_cast<double>(ballPos.x));
             m->setSavedValue<double>("ballPosY", static_cast<double>(ballPos.y));
@@ -715,7 +717,9 @@ void GUI::renderer() {
 void GUI::setup() {
     applyTheme();
 
-    // Restore persisted state from previous sessions.
+    // Restore persisted state from previous sessions: zBot owns the
+    // toggles / numeric inputs, the GUI owns the floating ball
+    // position. Defaults survive untouched if no save key exists yet.
     zBot::get()->loadSettings();
 
     auto m = Mod::get();
