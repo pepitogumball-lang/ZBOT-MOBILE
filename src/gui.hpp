@@ -60,18 +60,6 @@ public:
     // EclipseMenu-style theme.
     void applyTheme();
 
-    // Decides whether the floating ball should render this frame.
-    // The ball is the "summon" handle so we keep it visible whenever
-    // possible — only `onlyShowInMenu` actually hides it.
-    bool shouldRenderBall();
-
-    // Decides whether the main panel should render this frame.
-    // Honours every visibility toggle (hideWhilePlaying, hideInEditor,
-    // hideAfterFinish, onlyShowInMenu) so the heavy panel doesn't
-    // occlude gameplay while still letting the user tap the ball to
-    // bring it back during a pause.
-    bool shouldRenderPanel();
-
     static GUI* get() {
         static GUI* instance = new GUI();
         return instance;

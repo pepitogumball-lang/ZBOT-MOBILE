@@ -207,3 +207,60 @@ on every push to `main`. Drop the produced `.geode` file into:
     finishing a level no longer instantly hides the menu.
   - `src/zBot.hpp`: bumped `ZBOT_VERSION` to `v1.4.2`.
   - `mod.json`: bumped version to `v1.4.2`.
+- 2026-04-24: v1.5.0 macro replay rebuild + visibility toggles removed.
+  - **Macro playback rebuild (matcool/ReplayBot + FigmentBoy/zBot canonical
+    semantics).** The previous `(currentProgress - 1)` recording offset
+    paired with `frame < currentProgress` playback comparison had subtle
+    off-by-one paths (frame=-1 records when a player jumped on the very
+    first tick; resync logic that relied on stale `lastFrame` to detect a
+    level reset) that intermittently swallowed the first input of a
+    macro. Rebuilt to the canonical pattern:
+    - `src/recordmanager.cpp`: record the raw `m_currentProgress` (no
+      `-1` offset) so the on-disk frame number is the actual game frame
+      the player pressed on. `PlayLayer::init` now bumps the playback
+      epoch when re-entering a level with PLAYBACK armed so the cursor
+      always rewinds to input 0.
+    - `src/playbackmanager.cpp`: fire any input whose `frame <=
+      currentProgress` on this tick (matches matcool/FigmentBoy). Cursor
+      rewind is no longer driven by the brittle `frame < lastFrame`
+      heuristic — it watches `zBot::playbackEpoch`, an explicit counter
+      bumped from the GUI Replay button, from
+      `PlayLayer::resetLevel` (level restart) and from `PlayLayer::init`
+      (re-entering with PLAYBACK armed). The epoch is the single source
+      of truth shared between the GJBaseGameLayer and PlayLayer modify
+      classes (whose Geode `$modify` Fields don't share storage).
+      Switched the playback fire path to `this->handleButton(...)` so it
+      flows through the modify chain like real input.
+    - `src/zBot.hpp`: added `playbackEpoch` + `requestPlaybackRestart()`.
+  - **Settings tab: every "hide menu while X" toggle removed.** The
+    "Hide while playing", "Hide after finishing", "Only show in main
+    menu" and "Hide while editing a level" toggles caused more
+    confusion than they solved (users would lose the menu and not
+    know how to bring it back). Dropped:
+    - `src/zBot.hpp`: removed `hideWhilePlaying`, `hideAfterFinish`,
+      `onlyShowInMenu`, `hideInEditor`, `hudHiddenAfterFinish` fields
+      and their save/load entries.
+    - `src/gui.hpp` / `src/gui.cpp`: removed `shouldRenderBall()` /
+      `shouldRenderPanel()` (renderer now unconditionally draws the
+      ball and only hides the panel via the user's own open/close
+      toggle). Removed the "Menu visibility" section in
+      `renderSettingsTab`. Removed the `MenuLayer::init` and
+      `LevelEditorLayer::init` `$modify` hooks (only existed to clear
+      the now-deleted `hudHiddenAfterFinish` flag).
+    - `src/recordmanager.cpp`: dropped every `hudHiddenAfterFinish` /
+      `hideAfterFinish` reference from `init` and `levelComplete`.
+  - **Saved-macros UX: single Replay button.** The old "Load##sel" and
+    "Play##sel" two-button workflow was confusing. `src/gui.cpp` now
+    shows a single big `Replay` button below the saved-macros list:
+    one tap loads the selected macro from disk, sets `state = PLAYBACK`
+    regardless of the Home tab radio, copies the macro name into the
+    `Name` input field at the top, and bumps `playbackEpoch` so the
+    cursor restarts from input 0 the next time the level (re)starts.
+    Workflow: tap macro -> tap Replay -> restart level -> macro plays.
+    Added a "Selected: <name>" line above the action buttons so the
+    user always knows which macro Replay/Delete will act on (no need
+    to scroll back to the Name field). Removed the double-click play
+    handler — the explicit Replay button is the only play path now.
+  - `src/zBot.hpp`: bumped `ZBOT_VERSION` to `v1.5.0`.
+  - `mod.json`: bumped version to `v1.5.0`.
+  - `web/index.html`: bumped version badge + summary copy to v1.5.0.

@@ -92,7 +92,7 @@
     <span class="badge">geode: <b>5.6.1</b></span>
     <span class="badge">gd: <b>2.2081</b></span>
     <span class="badge">id: <b>pepitogumball.zbot_mobile</b></span>
-    <span class="badge">version: <b>v1.3.0</b></span>
+    <span class="badge">version: <b>v1.5.0</b></span>
   </div>
 
   <div class="card">
@@ -105,15 +105,20 @@
       runtime.
     </p>
     <p class="muted" style="margin-top:10px;">
-      <strong>v1.3.0 in-game features:</strong> draggable floating ball icon
-      with state dot, EclipseMenu-inspired dark/violet theme, tabbed layout
-      (Home / Macro / Speed / Settings), live status bar, saved-macros list
-      that shows each macro's file size and last-modified date (with
-      confirm-delete), clock-style speedhack with presets and free-form
-      input, a "perfect run only" recording mode that auto-cleans duplicate
-      inputs and only saves macros that actually completed the level, and
-      <strong>persistent settings</strong> - every toggle (and the floating
-      ball's position) is remembered between game launches.
+      <strong>v1.5.0 in-game features:</strong> draggable always-visible
+      floating ball with live state/spam dots, EclipseMenu-inspired
+      dark/violet theme, tabbed layout (Home / Macro / Speed / Spam /
+      Settings), saved-macros list with file size + date and an
+      EclipseMenu-style filter, clock-style speedhack with presets, a
+      built-in autoclicker/spammer with CPS + hold-ratio sliders,
+      "perfect run only" recording with checkpoint-based overwrite and
+      spam-safe spacing, persistent settings remembered between launches,
+      and a single explicit <strong>Replay</strong> button that arms
+      playback regardless of the Home tab radio (matcool/ReplayBot +
+      FigmentBoy/zBot canonical playback semantics — record raw
+      <code class="inline">m_currentProgress</code>, fire on
+      <code class="inline">frame &lt;= currentProgress</code>, restart
+      cursor on every <code class="inline">resetLevel</code>).
     </p>
     <div class="notice">
       This project is <strong>not a web app</strong>. There is no server or browser UI

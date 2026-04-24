@@ -6,7 +6,7 @@
 
 using namespace geode::prelude;
 
-#define ZBOT_VERSION "v1.4.2"
+#define ZBOT_VERSION "v1.5.0"
 
 enum zState {
     NONE, RECORD, PLAYBACK
@@ -25,6 +25,14 @@ public:
     bool ignoreInput = false;
     bool frameAdvance = false;
     bool doAdvance = false;
+
+    // Bumped every time playback should restart from the beginning of
+    // the macro: when a fresh macro is loaded, when the user re-arms
+    // PLAYBACK from the saved-macros list, or when the level is reset.
+    // The processCommands hook compares its cached value against this
+    // and forces a cursor rewind whenever they disagree, which is the
+    // canonical matcool/FigmentBoy "restart-the-replay" trigger.
+    int playbackEpoch = 0;
 
     // ----- Speedhack --------------------------------------------------------
     // Clock-style speedhack (xdBot/EclipseMenu semantics): we scale the
@@ -80,16 +88,6 @@ public:
     // macros stay free of clickbot pollution by default.
     bool spamSuppressRecord = false;
 
-    // ----- Visibility / HUD behaviour ---------------------------------------
-    bool hideWhilePlaying = false; // hide menu unless game is paused
-    bool hideAfterFinish  = false; // hide menu after a level is completed
-    bool onlyShowInMenu   = false; // hide whenever PlayLayer is loaded
-    bool hideInEditor     = false; // hide menu while editing a level
-
-    // Runtime-only flag flipped on by levelComplete and flipped off on
-    // MenuLayer::init (i.e. once the player returns to the main menu).
-    bool hudHiddenAfterFinish = false;
-
     // ----- Per-attempt state ------------------------------------------------
     bool levelCompleted = false;
 
@@ -139,6 +137,13 @@ public:
         }
     }
 
+    // Bump the playback epoch so processCommands knows to reset its
+    // cursor to 0 on the next tick. Called from PlayLayer::resetLevel
+    // and from the GUI when loading / arming a macro.
+    void requestPlaybackRestart() {
+        ++playbackEpoch;
+    }
+
     static zBot* get() {
         static zBot* instance = new zBot();
         return instance;
@@ -172,11 +177,6 @@ public:
         m->setSavedValue<int64_t>("spamPlayer",        spamPlayer);
         m->setSavedValue<bool>  ("spamOnlyDuringPlay", spamOnlyDuringPlay);
         m->setSavedValue<bool>  ("spamRecordToMacro",  spamRecordToMacro);
-
-        m->setSavedValue<bool>  ("hideWhilePlaying",   hideWhilePlaying);
-        m->setSavedValue<bool>  ("hideAfterFinish",    hideAfterFinish);
-        m->setSavedValue<bool>  ("onlyShowInMenu",     onlyShowInMenu);
-        m->setSavedValue<bool>  ("hideInEditor",       hideInEditor);
     }
 
     void loadSettings() {
@@ -211,11 +211,6 @@ public:
         if (spamPlayer < 0 || spamPlayer > 2) spamPlayer = 0;
         spamOnlyDuringPlay = m->getSavedValue<bool>  ("spamOnlyDuringPlay", spamOnlyDuringPlay);
         spamRecordToMacro  = m->getSavedValue<bool>  ("spamRecordToMacro",  spamRecordToMacro);
-
-        hideWhilePlaying   = m->getSavedValue<bool>  ("hideWhilePlaying",   hideWhilePlaying);
-        hideAfterFinish    = m->getSavedValue<bool>  ("hideAfterFinish",    hideAfterFinish);
-        onlyShowInMenu     = m->getSavedValue<bool>  ("onlyShowInMenu",     onlyShowInMenu);
-        hideInEditor       = m->getSavedValue<bool>  ("hideInEditor",       hideInEditor);
     }
 
     void playSound(bool p2, int button, bool down);

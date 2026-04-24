@@ -35,8 +35,14 @@ class $modify(zRecGJBGL, GJBaseGameLayer) {
 
         bool p2 = !p1 && m_levelSettings->m_twoPlayerMode && m_gameState.m_isDualMode;
         if (!shouldRecord(mgr, down, button, p2)) return;
+
+        // Record the raw current frame so playback can fire each input
+        // exactly when m_currentProgress matches at replay time. The
+        // playback hook uses `frame <= currentProgress` so the input
+        // lands on the same tick it was originally pressed on. This is
+        // the matcool/ReplayBot + FigmentBoy/zBot canonical convention.
         mgr->currentReplay->addInput(
-            static_cast<int>(m_gameState.m_currentProgress) - 1,
+            static_cast<int>(m_gameState.m_currentProgress),
             button, p2, down
         );
     }
@@ -50,9 +56,12 @@ class $modify(zRecPL, PlayLayer) {
             mgr->createNewReplay(lvl);
         }
 
-        // Re-entering a level clears the "level just finished" HUD-hide
-        // flag so the menu becomes available again on retry.
-        mgr->hudHiddenAfterFinish = false;
+        // Re-entering a level with PLAYBACK armed: rewind the cursor so
+        // the macro plays from the very first input. The playback hook
+        // watches the playbackEpoch counter and resyncs on change.
+        if (mgr->state == PLAYBACK) {
+            mgr->requestPlaybackRestart();
+        }
 
         if (!PlayLayer::init(lvl, useReplay, dontCreateObjects)) return false;
 
@@ -136,16 +145,6 @@ class $modify(zRecPL, PlayLayer) {
                 Notification::create("Perfect macro saved",
                     NotificationIcon::Success, 1.5f)->show();
             }
-        }
-
-        // Mark the level as freshly finished so the GUI can hide the
-        // panel until the player returns to the menu — but only when
-        // the user actually wants that behaviour. Setting the flag
-        // unconditionally meant toggling on "Hide after finish" *after*
-        // a level was completed would immediately hide the menu out
-        // of nowhere, which felt like a bug.
-        if (mgr->hideAfterFinish) {
-            mgr->hudHiddenAfterFinish = true;
         }
 
         // Auto-Safe Mode at the finish line: swallow the real

@@ -2,8 +2,6 @@
 #include "zBot.hpp"
 #include "replay.hpp"
 #include <Geode/modify/LoadingLayer.hpp>
-#include <Geode/modify/MenuLayer.hpp>
-#include <Geode/modify/LevelEditorLayer.hpp>
 #include <Geode/ui/Notification.hpp>
 
 #include <algorithm>
@@ -257,8 +255,12 @@ void GUI::renderStateSwitcher() {
     }
     ImGui::SameLine();
     if (ImGui::RadioButton("Playback", &currentState, PLAYBACK)) {
-        if (mgr->currentReplay) mgr->state = PLAYBACK;
-        else mgr->state = NONE;
+        if (mgr->currentReplay) {
+            mgr->state = PLAYBACK;
+            mgr->requestPlaybackRestart();
+        } else {
+            mgr->state = NONE;
+        }
     }
 }
 
@@ -351,20 +353,6 @@ void GUI::renderMacroTab() {
             Notification::create("Macro saved", NotificationIcon::Success, 1.0f)->show();
         } else {
             Notification::create("Nothing to save", NotificationIcon::Warning, 1.5f)->show();
-        }
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Load")) {
-        std::string clean = sanitizeName(mgr->loadName);
-        if (!clean.empty()) {
-            zReplay* r = zReplay::fromFile(clean);
-            if (r) {
-                if (mgr->currentReplay) delete mgr->currentReplay;
-                mgr->currentReplay = r;
-                Notification::create("Macro loaded", NotificationIcon::Success, 1.0f)->show();
-            } else {
-                Notification::create("Macro not found", NotificationIcon::Error, 1.5f)->show();
-            }
         }
     }
     ImGui::SameLine();
@@ -482,23 +470,15 @@ void GUI::renderMacroTab() {
                 fmtDate(info.mtime).c_str(),
                 i);
 
-            if (ImGui::Selectable(rowLabel, selected,
-                    ImGuiSelectableFlags_AllowDoubleClick)) {
+            // Single click: select + populate the Name field at the top
+            // so the user can immediately see which macro they picked.
+            // No double-click handler — Replay is one explicit button
+            // press below the list, so the flow is unambiguous.
+            if (ImGui::Selectable(rowLabel, selected)) {
                 selectedMacro = i;
                 std::strncpy(mgr->loadName, n.c_str(),
                              IM_ARRAYSIZE(mgr->loadName) - 1);
                 mgr->loadName[IM_ARRAYSIZE(mgr->loadName) - 1] = '\0';
-
-                if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-                    zReplay* r = zReplay::fromFile(n);
-                    if (r) {
-                        if (mgr->currentReplay) delete mgr->currentReplay;
-                        mgr->currentReplay = r;
-                        mgr->state = PLAYBACK;
-                        Notification::create("Playing macro",
-                            NotificationIcon::Success, 1.0f)->show();
-                    }
-                }
             }
         }
         if (shown == 0) {
@@ -511,38 +491,42 @@ void GUI::renderMacroTab() {
     bool hasSel = (selectedMacro >= 0 &&
                    selectedMacro < static_cast<int>(macros.size()));
 
+    // Big "Selected" line so the user always knows what Replay/Delete
+    // will act on — no need to scroll back to the Name field at the top.
+    if (hasSel) {
+        ImGui::TextColored(ImVec4(0.85f, 0.78f, 1.0f, 1.f),
+                           "Selected: %s", macros[selectedMacro].name.c_str());
+    } else {
+        ImGui::TextDisabled("Selected: (tap a macro above)");
+    }
+
     if (!hasSel) ImGui::BeginDisabled();
 
-    if (ImGui::Button("Load##sel")) {
-        const std::string& n = macros[selectedMacro].name;
-        zReplay* r = zReplay::fromFile(n);
-        if (r) {
-            if (mgr->currentReplay) delete mgr->currentReplay;
-            mgr->currentReplay = r;
-            Notification::create("Macro loaded",
-                NotificationIcon::Success, 1.0f)->show();
-        } else {
-            Notification::create("Failed to load",
-                NotificationIcon::Error, 1.5f)->show();
-        }
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Play##sel")) {
+    // Single big "Replay" button: loads the selected macro from disk,
+    // arms PLAYBACK regardless of the Home tab radio, and bumps the
+    // playback epoch so the cursor restarts from input 0 the next time
+    // the level (re)starts. Workflow: tap macro -> tap Replay ->
+    // restart the level -> macro plays.
+    if (ImGui::Button("Replay", ImVec2(-1, 36.f))) {
         const std::string& n = macros[selectedMacro].name;
         zReplay* r = zReplay::fromFile(n);
         if (r) {
             if (mgr->currentReplay) delete mgr->currentReplay;
             mgr->currentReplay = r;
             mgr->state = PLAYBACK;
-            Notification::create("Playback armed",
-                NotificationIcon::Success, 1.0f)->show();
+            mgr->requestPlaybackRestart();
+            std::strncpy(mgr->loadName, n.c_str(),
+                         IM_ARRAYSIZE(mgr->loadName) - 1);
+            mgr->loadName[IM_ARRAYSIZE(mgr->loadName) - 1] = '\0';
+            Notification::create("Replay armed - restart the level",
+                NotificationIcon::Success, 1.5f)->show();
         } else {
-            Notification::create("Failed to load",
+            Notification::create("Failed to load macro",
                 NotificationIcon::Error, 1.5f)->show();
         }
     }
-    ImGui::SameLine();
-    if (ImGui::Button("Delete##sel")) {
+
+    if (ImGui::Button("Delete", ImVec2(-1, 30.f))) {
         ImGui::OpenPopup("Delete macro?");
     }
 
@@ -570,7 +554,7 @@ void GUI::renderMacroTab() {
                 Notification::create("Macro deleted",
                     NotificationIcon::Success, 1.0f)->show();
             } else {
-                Notification::create("Delete failed",
+                Notification::create("Failed to delete",
                     NotificationIcon::Error, 1.5f)->show();
             }
             ImGui::CloseCurrentPopup();
@@ -763,7 +747,7 @@ void GUI::renderSpamTab() {
 }
 
 // ---------------------------------------------------------------------------
-// Settings tab: safety, audio, visibility, misc
+// Settings tab: safety + audio (visibility toggles removed in v1.5.0)
 // ---------------------------------------------------------------------------
 void GUI::renderSettingsTab() {
     zBot* mgr = zBot::get();
@@ -789,41 +773,11 @@ void GUI::renderSettingsTab() {
     }
 
     ImGui::Spacing();
-    ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "Menu visibility");
-    ImGui::Separator();
-    ImGui::TextDisabled("Hide the floating Z ball + panel based on\n"
-                        "where you are in the game.");
-
-    stDirty |= ImGui::Checkbox("Hide while playing", &mgr->hideWhilePlaying);
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Hide the menu while a level is being actively\n"
-                          "played. It reappears as soon as the game is\n"
-                          "paused.");
-    }
-    stDirty |= ImGui::Checkbox("Hide after finishing a level", &mgr->hideAfterFinish);
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Hide the menu once the level is completed.\n"
-                          "It reappears when you return to the main menu.");
-    }
-    stDirty |= ImGui::Checkbox("Hide while editing a level", &mgr->hideInEditor);
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Hide the menu while you're inside the level\n"
-                          "editor. Doesn't affect editor test play.");
-    }
-    stDirty |= ImGui::Checkbox("Only show in main menu", &mgr->onlyShowInMenu);
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Master switch: keep the menu hidden whenever\n"
-                          "you're inside a level (paused or otherwise)\n"
-                          "or inside the editor. Only appears on the\n"
-                          "main menu / level select.");
-    }
-
-    ImGui::Spacing();
     ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "About");
     ImGui::Separator();
     ImGui::TextWrapped(
         "ZBOT-MOBILE %s - macro / clock speedhack mod for Geometry Dash.\n"
-        "Inspired by FigmentBoy/zBot, Zilko/xdBot, and EclipseMenu.\n"
+        "Inspired by FigmentBoy/zBot, Zilko/xdBot, matcool/ReplayBot.\n"
         "Settings are remembered between sessions.",
         ZBOT_VERSION);
     ImGui::TextDisabled("Tip: drag the floating Z ball to move it; tap to toggle.");
@@ -914,69 +868,16 @@ void GUI::renderMainPanel() {
 }
 
 // ---------------------------------------------------------------------------
-// Visibility decision
-// ---------------------------------------------------------------------------
-//
-// Visibility decisions are split into two functions so the floating
-// ball can stay visible as a "summon" handle even while the heavy
-// main panel is hidden during gameplay. EclipseMenu and xdBot do the
-// same — there's always *something* clickable so the user is never
-// stranded without a way back to the menu.
-//
-// The flags compose as follows (most restrictive first):
-//   onlyShowInMenu  -> hide everything while in a level / editor
-//   hideAfterFinish -> hide the panel once a level is completed
-//   hideWhilePlaying-> hide the panel while in a level, not paused
-//   hideInEditor    -> hide the panel while inside the level editor
-//
-// `onlyShowInMenu` is the only toggle that hides the floating ball.
-// All other toggles only hide the panel — the ball remains tappable
-// so the user can reopen the panel during a pause / on the next menu.
-//
-// PlayLayer::get() being non-null means we're inside a level (paused
-// or otherwise). PlayLayer::m_isPaused is the canonical pause flag;
-// CCDirector::isPaused() is unreliable on Android because GD's pause
-// menu overlays the scene without always pausing the director.
-// LevelEditorLayer::get() being non-null means we're in the editor
-// (edit mode; test play exposes a PlayLayer too).
-bool GUI::shouldRenderBall() {
-    zBot* mgr = zBot::get();
-    auto* pl  = PlayLayer::get();
-    auto* led = LevelEditorLayer::get();
-    bool inLevel  = pl != nullptr;
-    bool inEditor = led != nullptr && pl == nullptr;
-
-    if (mgr->onlyShowInMenu && (inLevel || inEditor)) return false;
-    return true;
-}
-
-bool GUI::shouldRenderPanel() {
-    zBot* mgr = zBot::get();
-    auto* pl  = PlayLayer::get();
-    auto* led = LevelEditorLayer::get();
-    bool inLevel  = pl != nullptr;
-    bool inEditor = led != nullptr && pl == nullptr;
-    bool paused   = inLevel && pl->m_isPaused;
-
-    if (mgr->onlyShowInMenu && (inLevel || inEditor)) return false;
-    if (mgr->hideAfterFinish && mgr->hudHiddenAfterFinish) return false;
-    if (mgr->hideWhilePlaying && inLevel && !paused) return false;
-    if (mgr->hideInEditor && inEditor) return false;
-
-    return true;
-}
-
-// ---------------------------------------------------------------------------
 // Top-level renderer
 // ---------------------------------------------------------------------------
+//
+// v1.5.0 dropped every "hide menu while X" toggle, so the floating ball
+// is unconditionally drawn and the panel only obeys the user's own
+// open/close state. The ball is the always-available summon handle —
+// just like matcool/ReplayBot's indicator.
 void GUI::renderer() {
-    // Ball is always available as a summon handle (subject only to
-    // `onlyShowInMenu`). The panel respects every visibility toggle
-    // independently, so "hide while playing" only hides the heavy
-    // panel while leaving the ball tappable for a quick re-open
-    // during a pause or on the next menu.
-    if (shouldRenderBall()) renderFloatingBall();
-    if (visible && shouldRenderPanel()) renderMainPanel();
+    renderFloatingBall();
+    if (visible) renderMainPanel();
 }
 
 void GUI::setup() {
@@ -1002,26 +903,6 @@ class $modify(zLoadingLayer, LoadingLayer) {
             GUI::get()->renderer();
         });
 
-        return true;
-    }
-};
-
-// Returning to the main menu clears the "level just finished" HUD-hide
-// flag so the user can find the menu again after a successful run.
-// We also clear it on entering the editor (different scene from the
-// finished level) so the user isn't stuck without a menu while editing.
-class $modify(zMenuLayer, MenuLayer) {
-    bool init() {
-        if (!MenuLayer::init()) return false;
-        zBot::get()->hudHiddenAfterFinish = false;
-        return true;
-    }
-};
-
-class $modify(zEditorLayer, LevelEditorLayer) {
-    bool init(GJGameLevel* level, bool unk) {
-        if (!LevelEditorLayer::init(level, unk)) return false;
-        zBot::get()->hudHiddenAfterFinish = false;
         return true;
     }
 };

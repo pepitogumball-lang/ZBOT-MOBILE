@@ -18,6 +18,20 @@ using namespace geode::prelude;
 // in-game frame" (m_gameState.m_currentProgress). Per-instance state
 // lives on Geode's $modify Fields so two PlayLayer entries in a row
 // (or arming Playback mid-level) can't bleed indexes between sessions.
+//
+// Playback model (matcool/ReplayBot, FigmentBoy/zBot semantics):
+//   - Record: store the raw m_currentProgress at the moment handleButton
+//     fires.
+//   - Playback: every tick, fire all inputs whose frame is <= the
+//     current m_currentProgress. The cursor advances monotonically;
+//     it is rewound to 0 only when the playback "epoch" bumps (set by
+//     the GUI when a macro is loaded/armed, and by PlayLayer::resetLevel
+//     when the player restarts the level).
+//
+// The epoch trigger is critical because Geode $modify Fields are
+// per-modify-class, not shared between zPlayPL (PlayLayer) and
+// zPlayGJBGL (GJBaseGameLayer). zBot::playbackEpoch is the single
+// source of truth — both sides read/write the same int.
 
 class $modify(zPlayGJBGL, GJBaseGameLayer) {
     struct Fields {
@@ -25,16 +39,11 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
         int currIndex      = 0;
         int clickBotIndex  = 0;
 
-        // Resync triggers: a new replay was loaded, the in-game frame
-        // went backwards (death without our resetLevel hook firing
-        // first, e.g. some practice-mode rewinds), or the user just
-        // armed PLAYBACK mid-level (state transition NONE/RECORD ->
-        // PLAYBACK without a scene change). Without the lastState
-        // check, arming mid-level would replay every input from index
-        // 0 in a single frame and brick the level.
+        // Cached epoch + replay pointer so we can detect "the user
+        // armed a different macro" or "the level was reset" without
+        // having to peek into other modify classes' Fields.
+        int      lastEpoch  = -1;
         zReplay* lastReplay = nullptr;
-        int      lastFrame  = -1;
-        int      lastState  = NONE;
 
         // Spam state: tracked button state per player so we only emit
         // events on transitions, and the frame the spammer was first
@@ -58,69 +67,69 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
 
         // ---- Playback ------------------------------------------------------
         if (mgr->state == PLAYBACK && mgr->currentReplay) {
-            // Re-sync indexes when:
-            //  - the replay pointer changes (user loaded a different
-            //    macro mid-level)
-            //  - the frame went backwards (death without a resetLevel
-            //    hook firing first, or a checkpoint rewind)
-            //  - the previous tick was NOT in PLAYBACK state (user just
-            //    toggled it on without dying / changing scene)
-            //
-            // For fresh level entries and restarts (frame is at or near
-            // the start), the cursor stays at 0 and the fire loop below
-            // gets to fire any frame-0 inputs naturally on the next
-            // tick. For genuine mid-level joins (frame > 1) we
-            // fast-forward the cursor past historical inputs so we
-            // don't replay 500 frames of inputs in a single tick and
-            // instantly brick the level.
-            //
-            // The previous (v1.4.1) code skipped unconditionally, which
-            // meant on a fresh entry at frame=1 we'd skip past the
-            // frame-0 input forever and the macro looked broken.
-            bool replayChanged = (m_fields->lastReplay != mgr->currentReplay);
-            bool wentBack      = (frame < m_fields->lastFrame);
-            bool freshlyArmed  = (m_fields->lastState != PLAYBACK);
+            // Detect a fresh start: the GUI bumped the epoch (loaded a
+            // new macro / hit Replay) or the player swapped the active
+            // replay pointer underneath us. PlayLayer::resetLevel also
+            // bumps the epoch so a level restart rewinds the cursor.
+            bool epochChanged   = (m_fields->lastEpoch  != mgr->playbackEpoch);
+            bool replayChanged  = (m_fields->lastReplay != mgr->currentReplay);
 
-            if (replayChanged || wentBack || freshlyArmed) {
+            if (epochChanged || replayChanged) {
+                m_fields->lastEpoch     = mgr->playbackEpoch;
+                m_fields->lastReplay    = mgr->currentReplay;
                 m_fields->currIndex     = 0;
                 m_fields->clickBotIndex = 0;
-                m_fields->lastReplay    = mgr->currentReplay;
 
+                // Mid-level join (e.g. user armed Playback during a
+                // checkpoint attempt): fast-forward past inputs that
+                // already "should have fired" so we don't replay 500
+                // events in a single tick and brick the level. Fresh
+                // starts (frame 0/1) leave the cursor at 0 so frame-0
+                // inputs still play normally.
                 if (frame > 1) {
-                    while (m_fields->currIndex < (int)mgr->currentReplay->inputs.size() &&
-                           mgr->currentReplay->inputs[m_fields->currIndex].frame < frame) {
+                    auto& inputs = mgr->currentReplay->inputs;
+                    while (m_fields->currIndex < (int)inputs.size() &&
+                           inputs[m_fields->currIndex].frame < frame) {
                         m_fields->currIndex++;
                     }
                     m_fields->clickBotIndex = m_fields->currIndex;
                 }
             }
-            m_fields->lastFrame = frame;
-            m_fields->lastState = PLAYBACK;
 
-            while (m_fields->currIndex < (int)mgr->currentReplay->inputs.size() &&
-                   mgr->currentReplay->inputs[m_fields->currIndex].frame < frame) {
-                auto input = mgr->currentReplay->inputs[m_fields->currIndex++];
-                GJBaseGameLayer::handleButton(input.down, input.button, !input.player2);
+            auto& inputs = mgr->currentReplay->inputs;
+
+            // Fire every input whose frame has now arrived. Using <= is
+            // the canonical matcool/FigmentBoy comparison: an input
+            // recorded at frame N fires the moment m_currentProgress
+            // reaches N, on the same tick.
+            while (m_fields->currIndex < (int)inputs.size() &&
+                   inputs[m_fields->currIndex].frame <= frame) {
+                auto& input = inputs[m_fields->currIndex++];
+                // this->handleButton goes through the modify chain so
+                // every other handleButton hook (clickbot, recording,
+                // etc.) sees the event. The record hook short-circuits
+                // when state == PLAYBACK so we don't end up echoing
+                // playback events back into the recording.
+                this->handleButton(input.down, input.button, !input.player2);
             }
 
             // Tiny lookahead so the click sound effect feels in sync
-            // when the clickbot is on. Pure cosmetic.
+            // when the clickbot SFX is on. Pure cosmetic — does not
+            // emit any input events.
             int offset = static_cast<int>(mgr->currentReplay->framerate * 0.1);
-            while (m_fields->clickBotIndex < (int)mgr->currentReplay->inputs.size() &&
-                   mgr->currentReplay->inputs[m_fields->clickBotIndex].frame < frame + offset) {
-                auto click = mgr->currentReplay->inputs[m_fields->clickBotIndex++];
+            while (m_fields->clickBotIndex < (int)inputs.size() &&
+                   inputs[m_fields->clickBotIndex].frame <= frame + offset) {
+                auto click = inputs[m_fields->clickBotIndex++];
                 if (mgr->clickbotEnabled) {
                     mgr->playSound(click.player2, click.button, click.down);
                 }
             }
         } else {
-            // Idle / record: keep lastFrame pegged so a future arming
-            // of playback resyncs cleanly. lastState is recorded so
-            // the PLAYBACK branch above can detect the transition and
-            // force a resync even when nothing else changed.
-            m_fields->lastFrame  = frame;
+            // Idle / record: keep the epoch + replay pointer cache
+            // current so the next PLAYBACK arming triggers a clean
+            // restart on the next tick.
+            m_fields->lastEpoch  = mgr->playbackEpoch;
             m_fields->lastReplay = mgr->currentReplay;
-            m_fields->lastState  = mgr->state;
         }
 
         // ---- Built-in spammer / autoclicker --------------------------------
@@ -235,10 +244,15 @@ class $modify(zPlayPL, PlayLayer) {
     void resetLevel() {
         PlayLayer::resetLevel();
 
-        // Forcibly invalidate the playback / spam cursors held on the
-        // GJBaseGameLayer Fields. The processCommands hook will resync
-        // on the next frame because lastFrame > current frame now.
-        // We intentionally don't poke into the Fields directly here;
-        // the mid-update resync handles the transition.
+        // A level restart should rewind the playback cursor to 0 so the
+        // macro plays from the beginning of the run. We can't poke into
+        // the GJBaseGameLayer modify Fields from here (different modify
+        // class -> different Fields struct), so we bump the shared
+        // playback epoch on the zBot singleton and the playback hook
+        // picks up the change on its next tick.
+        zBot* mgr = zBot::get();
+        if (mgr->state == PLAYBACK) {
+            mgr->requestPlaybackRestart();
+        }
     }
 };
