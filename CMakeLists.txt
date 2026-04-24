@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.25)
 
 project(ZBOT_MOBILE LANGUAGES CXX)
 
-# find_package(Geode) is required and will be found automatically by setup-geode
-find_package(Geode REQUIRED)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # CPM for dependencies
 include(FetchContent)
@@ -22,17 +22,23 @@ endif()
 CPMAddPackage("gh:maxnut/GDReplayFormat#9c32b5529067901418ea6e4dfbd36437dc8712bc")
 CPMAddPackage("gh:matcool/gd-imgui-cocos#8973953519fa05d81c61634e585559ab87ca559d")
 
-# Setup the mod with its ID
-setup_geode_mod(pepitogumball.zbot_mobile)
-
-# Create the mod target
-add_geode_mod(
-    ZBOT_MOBILE
-    RESOURCES resources
-    SOURCES
-        src/main.cpp
-        src/zBot.cpp
-        src/gui.cpp
+# Add the sources
+set(SOURCES
+    src/main.cpp
+    src/zBot.cpp
+    src/gui.cpp
 )
 
+# Set up the mod binary
+add_library(ZBOT_MOBILE SHARED ${SOURCES})
+
+# Geode SDK setup
+if (NOT DEFINED ENV{GEODE_SDK})
+    message(FATAL_ERROR "Unable to find Geode SDK! Please define GEODE_SDK environment variable to point to Geode")
+endif()
+
+add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
+
+# Link dependencies and setup Geode
 target_link_libraries(ZBOT_MOBILE PUBLIC libGDR imgui-cocos)
+setup_geode_mod(ZBOT_MOBILE)
