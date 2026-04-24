@@ -3,6 +3,7 @@
 
 #include <Geode/Geode.hpp>
 #include <imgui-cocos.hpp>
+#include "replay.hpp"
 #include <vector>
 #include <string>
 
@@ -20,11 +21,10 @@ public:
     ImVec2 ballPos = ImVec2(20.f, 80.f);
     bool ballDragging = false;
 
-    // Cached list of macro names found on disk (without the .gdr
-    // extension). Refreshed on demand and whenever the user saves /
-    // deletes a macro. Kept on the GUI so we don't hit the filesystem
-    // every frame.
-    std::vector<std::string> macros;
+    // Cached list of macros found on disk with metadata (size + mtime).
+    // Refreshed on demand and whenever the user saves / deletes a macro.
+    // Kept on the GUI so we don't hit the filesystem every frame.
+    std::vector<zReplay::MacroFileInfo> macros;
     int selectedMacro = -1;
     bool macrosDirty = true;
 

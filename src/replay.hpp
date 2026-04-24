@@ -10,6 +10,9 @@
 #include <algorithm>
 #include <system_error>
 #include <cctype>
+#include <chrono>
+#include <ctime>
+#include <cstdint>
 
 using namespace geode::prelude;
 
@@ -166,6 +169,72 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
             });
 
         return names;
+    }
+
+    // Lightweight metadata-only entry for the saved-macros list. We
+    // intentionally do NOT load the full input stream here — the GUI
+    // shows hundreds of these and parsing every .gdr each refresh would
+    // stutter the menu. File size + last-write time are cheap stat()
+    // calls and good enough to help the user pick the right macro.
+    struct MacroFileInfo {
+        std::string name;       // display name (no extension)
+        std::uintmax_t size;    // bytes on disk
+        std::time_t mtime;      // unix seconds, last modification
+    };
+
+    // Same listing semantics as listSaved() but returns size + mtime
+    // for each macro. Sorted by name (case-insensitive).
+    static std::vector<MacroFileInfo> listSavedDetailed() {
+        std::vector<MacroFileInfo> out;
+        auto dir = macrosDir();
+
+        std::error_code ec;
+        if (!std::filesystem::exists(dir, ec)) {
+            std::filesystem::create_directories(dir, ec);
+            return out;
+        }
+
+        for (auto const& entry : std::filesystem::directory_iterator(dir, ec)) {
+            if (ec) break;
+            if (!entry.is_regular_file(ec)) continue;
+            if (entry.path().extension() != ".gdr") continue;
+
+            MacroFileInfo info;
+            info.name = entry.path().stem().string();
+
+            std::error_code sec;
+            info.size = entry.file_size(sec);
+            if (sec) info.size = 0;
+
+            // file_clock -> system_clock conversion. std::chrono::clock_cast
+            // is C++20 but still patchy on some Android NDK toolchains, so
+            // we use the portable now()-anchored offset trick.
+            sec.clear();
+            auto ftime = entry.last_write_time(sec);
+            if (sec) {
+                info.mtime = 0;
+            } else {
+                auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+                    ftime - std::filesystem::file_time_type::clock::now()
+                          + std::chrono::system_clock::now());
+                info.mtime = std::chrono::system_clock::to_time_t(sctp);
+            }
+
+            out.push_back(std::move(info));
+        }
+
+        std::sort(out.begin(), out.end(),
+            [](const MacroFileInfo& a, const MacroFileInfo& b) {
+                return std::lexicographical_compare(
+                    a.name.begin(), a.name.end(),
+                    b.name.begin(), b.name.end(),
+                    [](char x, char y) {
+                        return std::tolower(static_cast<unsigned char>(x)) <
+                               std::tolower(static_cast<unsigned char>(y));
+                    });
+            });
+
+        return out;
     }
 
     // Delete a macro from disk by its display name (no extension).

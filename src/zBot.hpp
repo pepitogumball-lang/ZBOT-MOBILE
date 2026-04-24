@@ -110,6 +110,34 @@ public:
         return instance;
     }
 
+    // Persist all user-tweakable settings via Geode's per-mod save store
+    // so the menu remembers the player's choices between game launches.
+    // Only fields the user sees in the GUI are saved — transient
+    // recording/playback flags are always reset on launch.
+    void saveSettings() {
+        auto m = Mod::get();
+        m->setSavedValue<bool>("speedHackEnabled", speedHackEnabled);
+        m->setSavedValue<bool>("speedHackAudio",   speedHackAudio);
+        m->setSavedValue<double>("speed",          speed);
+        m->setSavedValue<bool>("autoSafeMode",     autoSafeMode);
+        m->setSavedValue<bool>("clickbotEnabled",  clickbotEnabled);
+        m->setSavedValue<bool>("autoSave",         autoSave);
+        m->setSavedValue<bool>("perfectRunOnly",   perfectRunOnly);
+        m->setSavedValue<bool>("dedupeInputs",     dedupeInputs);
+    }
+
+    void loadSettings() {
+        auto m = Mod::get();
+        speedHackEnabled = m->getSavedValue<bool>("speedHackEnabled", speedHackEnabled);
+        speedHackAudio   = m->getSavedValue<bool>("speedHackAudio",   speedHackAudio);
+        speed            = m->getSavedValue<double>("speed",          speed);
+        autoSafeMode     = m->getSavedValue<bool>("autoSafeMode",     autoSafeMode);
+        clickbotEnabled  = m->getSavedValue<bool>("clickbotEnabled",  clickbotEnabled);
+        autoSave         = m->getSavedValue<bool>("autoSave",         autoSave);
+        perfectRunOnly   = m->getSavedValue<bool>("perfectRunOnly",   perfectRunOnly);
+        dedupeInputs     = m->getSavedValue<bool>("dedupeInputs",     dedupeInputs);
+    }
+
     void playSound(bool p2, int button, bool down);
 };
 

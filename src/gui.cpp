@@ -167,6 +167,11 @@ void GUI::renderFloatingBall() {
     if (ImGui::IsItemDeactivated()) {
         if (!ballDragging) {
             visible = !visible;
+        } else {
+            // Persist the new ball position so it survives a relaunch.
+            auto m = Mod::get();
+            m->setSavedValue<double>("ballPosX", static_cast<double>(ballPos.x));
+            m->setSavedValue<double>("ballPosY", static_cast<double>(ballPos.y));
         }
         ballDragging = false;
     }
@@ -279,11 +284,42 @@ void GUI::renderHomeTab() {
 // Macro tab: file IO, saved list, recording quality settings
 // ---------------------------------------------------------------------------
 void GUI::refreshMacros() {
-    macros = zReplay::listSaved();
+    macros = zReplay::listSavedDetailed();
     if (selectedMacro >= static_cast<int>(macros.size())) {
         selectedMacro = -1;
     }
     macrosDirty = false;
+}
+
+// Format a byte count as a short, human-friendly string ("12 B",
+// "3.4 KB", "1.2 MB"). Macros are tiny so MB is the practical ceiling.
+static std::string fmtSize(std::uintmax_t bytes) {
+    char buf[32];
+    if (bytes < 1024) {
+        std::snprintf(buf, sizeof(buf), "%llu B", static_cast<unsigned long long>(bytes));
+    } else if (bytes < 1024ull * 1024ull) {
+        std::snprintf(buf, sizeof(buf), "%.1f KB", bytes / 1024.0);
+    } else {
+        std::snprintf(buf, sizeof(buf), "%.1f MB", bytes / (1024.0 * 1024.0));
+    }
+    return std::string(buf);
+}
+
+// Format a unix timestamp as a short local-time date, e.g. "Apr 24 16:42".
+// Falls back to "—" if the mtime couldn't be read.
+static std::string fmtDate(std::time_t t) {
+    if (t <= 0) return std::string("-");
+    std::tm tmv{};
+#if defined(_WIN32)
+    localtime_s(&tmv, &t);
+#else
+    localtime_r(&t, &tmv);
+#endif
+    char buf[32];
+    if (std::strftime(buf, sizeof(buf), "%b %d %H:%M", &tmv) == 0) {
+        return std::string("-");
+    }
+    return std::string(buf);
 }
 
 void GUI::renderMacroTab() {
@@ -334,25 +370,27 @@ void GUI::renderMacroTab() {
     ImGui::Spacing();
     ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "Recording quality");
     ImGui::Separator();
-    ImGui::Checkbox("Perfect run only", &mgr->perfectRunOnly);
+    bool qDirty = false;
+    qDirty |= ImGui::Checkbox("Perfect run only", &mgr->perfectRunOnly);
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Only auto-save when the level is completed.\n"
                           "Quitting mid-attempt won't overwrite your\n"
                           "previously saved masterpiece.");
     }
     ImGui::SameLine();
-    ImGui::Checkbox("Auto save", &mgr->autoSave);
+    qDirty |= ImGui::Checkbox("Auto save", &mgr->autoSave);
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Save the macro automatically on level\n"
                           "complete (and exit, if 'Perfect run only'\n"
                           "is off).");
     }
-    ImGui::Checkbox("Dedupe inputs", &mgr->dedupeInputs);
+    qDirty |= ImGui::Checkbox("Dedupe inputs", &mgr->dedupeInputs);
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Drop input events that don't change the\n"
                           "held state of a button. Eliminates glitchy\n"
                           "double-taps and bouncing taps.");
     }
+    if (qDirty) mgr->saveSettings();
 
     ImGui::Spacing();
     ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "Saved macros");
@@ -373,9 +411,22 @@ void GUI::renderMacroTab() {
     if (ImGui::BeginListBox("##macrolist",
             ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 7.f))) {
         for (int i = 0; i < static_cast<int>(macros.size()); ++i) {
-            const std::string& n = macros[i];
+            const auto& info = macros[i];
+            const std::string& n = info.name;
             bool selected = (i == selectedMacro);
-            if (ImGui::Selectable(n.c_str(), selected,
+
+            // Row label: "name   |   size   |   date". The ##rowN suffix
+            // keeps each Selectable's ImGui ID unique even if two macros
+            // somehow shared a display name.
+            char rowLabel[256];
+            std::snprintf(rowLabel, sizeof(rowLabel),
+                "%-24s   %8s   %s##row%d",
+                n.c_str(),
+                fmtSize(info.size).c_str(),
+                fmtDate(info.mtime).c_str(),
+                i);
+
+            if (ImGui::Selectable(rowLabel, selected,
                     ImGuiSelectableFlags_AllowDoubleClick)) {
                 selectedMacro = i;
                 std::strncpy(mgr->loadName, n.c_str(),
@@ -404,7 +455,7 @@ void GUI::renderMacroTab() {
     if (!hasSel) ImGui::BeginDisabled();
 
     if (ImGui::Button("Load##sel")) {
-        const std::string& n = macros[selectedMacro];
+        const std::string& n = macros[selectedMacro].name;
         zReplay* r = zReplay::fromFile(n);
         if (r) {
             if (mgr->currentReplay) delete mgr->currentReplay;
@@ -418,7 +469,7 @@ void GUI::renderMacroTab() {
     }
     ImGui::SameLine();
     if (ImGui::Button("Play##sel")) {
-        const std::string& n = macros[selectedMacro];
+        const std::string& n = macros[selectedMacro].name;
         zReplay* r = zReplay::fromFile(n);
         if (r) {
             if (mgr->currentReplay) delete mgr->currentReplay;
@@ -442,13 +493,13 @@ void GUI::renderMacroTab() {
             ImGuiWindowFlags_AlwaysAutoResize)) {
         if (hasSel) {
             ImGui::Text("Permanently delete \"%s\"?",
-                        macros[selectedMacro].c_str());
+                        macros[selectedMacro].name.c_str());
         } else {
             ImGui::TextDisabled("No macro selected.");
         }
         ImGui::Separator();
         if (ImGui::Button("Delete", ImVec2(120, 0)) && hasSel) {
-            const std::string n = macros[selectedMacro];
+            const std::string n = macros[selectedMacro].name;
             if (zReplay::deleteByName(n)) {
                 if (mgr->currentReplay && mgr->currentReplay->name == n) {
                     delete mgr->currentReplay;
@@ -484,9 +535,10 @@ void GUI::renderSpeedTab() {
     ImGui::TextDisabled("Scales the cocos scheduler delta time.\n"
                         "Same approach as xdBot's clock speedhack.");
 
-    ImGui::Checkbox("Enabled##sh", &mgr->speedHackEnabled);
+    bool spDirty = false;
+    spDirty |= ImGui::Checkbox("Enabled##sh", &mgr->speedHackEnabled);
     ImGui::SameLine();
-    ImGui::Checkbox("Audio pitch", &mgr->speedHackAudio);
+    spDirty |= ImGui::Checkbox("Audio pitch", &mgr->speedHackAudio);
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Pitch the music to match the game speed.\n"
                           "Recommended; otherwise the song desyncs.");
@@ -496,6 +548,7 @@ void GUI::renderSpeedTab() {
     if (ImGui::InputFloat("Speed (x)", &speed, 0.05f, 0.25f, "%.3f")) {
         if (speed < 0.f) speed = 0.f;
         mgr->speed = static_cast<double>(speed);
+        spDirty = true;
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("0    = off\n"
@@ -531,6 +584,7 @@ void GUI::renderSpeedTab() {
         if (ImGui::SmallButton(kPresets[i].label)) {
             mgr->speed = kPresets[i].value;
             mgr->speedHackEnabled = (kPresets[i].value > 0.0);
+            spDirty = true;
         }
         if (matches) ImGui::PopStyleColor(4);
     }
@@ -538,6 +592,8 @@ void GUI::renderSpeedTab() {
     if (mgr->speed <= 0.0) {
         ImGui::TextDisabled("(speed = 0 -> speedhack inactive)");
     }
+
+    if (spDirty) mgr->saveSettings();
 }
 
 // ---------------------------------------------------------------------------
@@ -548,7 +604,8 @@ void GUI::renderSettingsTab() {
 
     ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "Safety");
     ImGui::Separator();
-    ImGui::Checkbox("Auto-Safe Mode", &mgr->autoSafeMode);
+    bool stDirty = false;
+    stDirty |= ImGui::Checkbox("Auto-Safe Mode", &mgr->autoSafeMode);
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Forces practice mode on level start so any new\n"
                           "checkpoint you set doesn't count as a real run\n"
@@ -560,7 +617,7 @@ void GUI::renderSettingsTab() {
     ImGui::Spacing();
     ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "Playback");
     ImGui::Separator();
-    ImGui::Checkbox("Clickbot SFX", &mgr->clickbotEnabled);
+    stDirty |= ImGui::Checkbox("Clickbot SFX", &mgr->clickbotEnabled);
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Play a click sound for every input during playback.");
     }
@@ -569,9 +626,12 @@ void GUI::renderSettingsTab() {
     ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "About");
     ImGui::Separator();
     ImGui::TextWrapped(
-        "ZBOT-MOBILE v1.2.0 - macro / clock speedhack mod for Geometry Dash.\n"
-        "Inspired by FigmentBoy/zBot, Zilko/xdBot, and EclipseMenu.");
+        "ZBOT-MOBILE v1.3.0 - macro / clock speedhack mod for Geometry Dash.\n"
+        "Inspired by FigmentBoy/zBot, Zilko/xdBot, and EclipseMenu.\n"
+        "Settings are remembered between sessions.");
     ImGui::TextDisabled("Tip: drag the floating Z ball to move it; tap to toggle.");
+
+    if (stDirty) mgr->saveSettings();
 }
 
 // ---------------------------------------------------------------------------
@@ -588,7 +648,7 @@ void GUI::renderMainPanel() {
     }
 
     // Header row: title + finger-friendly X close button.
-    ImGui::TextColored(ImVec4(0.85f, 0.78f, 1.0f, 1.f), "ZBOT-MOBILE v1.2.0");
+    ImGui::TextColored(ImVec4(0.85f, 0.78f, 1.0f, 1.f), "ZBOT-MOBILE v1.3.0");
     ImGui::SameLine(ImGui::GetWindowWidth() - 56.f);
     if (ImGui::Button("X", ImVec2(36.f, 26.f))) {
         visible = false;
@@ -654,6 +714,13 @@ void GUI::renderer() {
 
 void GUI::setup() {
     applyTheme();
+
+    // Restore persisted state from previous sessions.
+    zBot::get()->loadSettings();
+
+    auto m = Mod::get();
+    ballPos.x = static_cast<float>(m->getSavedValue<double>("ballPosX", ballPos.x));
+    ballPos.y = static_cast<float>(m->getSavedValue<double>("ballPosY", ballPos.y));
 }
 
 class $modify(zLoadingLayer, LoadingLayer) {
