@@ -10,7 +10,7 @@ struct PracticeInfo {
 };
 static PracticeInfo practice;
 
-class (zBGL, GJBaseGameLayer) {
+class $modify(zBGL, GJBaseGameLayer) {
     struct Fields {
         bool p1J = false, p1L = false, p1R = false;
         bool p2J = false, p2L = false, p2R = false;
@@ -20,7 +20,7 @@ class (zBGL, GJBaseGameLayer) {
         GJBaseGameLayer::processCommands(dt, isHalfTick, isLastTick);
         zBot* mgr = zBot::get();
         if (mgr->state == RECORD && mgr->currentReplay) {
-            int frame = m_gameState.m_currentProgress * mgr->tps;
+            int frame = static_cast<int>(m_gameState.m_currentProgress * mgr->tps);
             auto recordInput = [&](PlayerObject* p, bool p2, int btn, bool& lastState) {
                 if (!p) return;
                 bool currentState = p->m_holdingButtons[btn];
@@ -38,12 +38,12 @@ class (zBGL, GJBaseGameLayer) {
     }
 };
 
-class (zPL, PlayLayer) {
+class $modify(zPL, PlayLayer) {
     void createCheckpoint() {
         PlayLayer::createCheckpoint();
         zBot* mgr = zBot::get();
         if (mgr->state == RECORD) {
-            practice.checkpointFrames.push_back(m_gameState.m_currentProgress * mgr->tps);
+            practice.checkpointFrames.push_back(static_cast<int>(m_gameState.m_currentProgress * mgr->tps));
         }
     }
     void removeLastCheckpoint() {
