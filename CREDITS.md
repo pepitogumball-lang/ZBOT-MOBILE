@@ -11,7 +11,7 @@ core ideas come from other community projects. Full attribution below.
   `zReplay` data layout in `src/replay.hpp`, the `zState` enum, the
   recordmanager / playbackmanager split and the speedhack approach all
   come from zilko's zBot.
-  Upstream: https://github.com/zilko-x/zBot
+  Upstream: https://github.com/FigmentBoy/zBot
 
 ZBOT-MOBILE would not exist without zilko's work. zilko is listed as a
 co-developer in `mod.json` and credited here.
