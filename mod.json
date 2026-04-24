@@ -6,11 +6,15 @@
     "mac": "2.2081",
     "ios": "2.2081"
   },
-  "version": "v1.5.1",
+  "version": "v1.5.2",
   "id": "pepitogumball.zbot_mobile",
   "name": "ZBOT-MOBILE",
-  "developer": "pepitogumball",
-  "description": "ZBOT BUT MOBILE (WORK IN PROGRESS) - A remastered version of zBot for Android and Windows.",
+  "developers": ["pepitogumball", "zilko"],
+  "description": "Mobile-friendly port of zBot (originally by zilko) for Geometry Dash. See CREDITS.md for full attribution.",
+  "links": {
+    "source": "https://github.com/pepitogumball-lang/ZBOT-MOBILE"
+  },
+  "tags": ["gameplay", "utility"],
   "resources": {
     "files": [
       "*.png"

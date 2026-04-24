@@ -6,6 +6,10 @@ on:
     branches:
       - "main"
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     strategy:
@@ -61,6 +65,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Read mod version from mod.json
+        id: modver
+        run: |
+          set -e
+          ver=$(jq -r .version mod.json)
+          if [[ -z "$ver" || "$ver" == "null" ]]; then
+            echo "::error::No version in mod.json"
+            exit 1
+          fi
+          # normalize to vX.Y.Z
+          if [[ "$ver" != v* ]]; then
+            ver="v$ver"
+          fi
+          if [[ ! "$ver" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version '$ver' in mod.json is not vX.Y.Z"
+            exit 1
+          fi
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+          echo "Releasing as $ver"
+
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
@@ -70,33 +94,41 @@ jobs:
       - name: List downloaded files
         run: ls -la ./release-files
 
-      # Wipe the previous "latest" release + tag so the new one fully
-      # replaces it (assets, body, timestamp). Without this, uploads
-      # would fail on duplicate filenames and the release page would
-      # accumulate stale artifacts.
-      - name: Delete previous "latest" release
+      - name: Verify .geode files exist
+        run: |
+          set -e
+          if ! ls ./release-files/*.geode 1> /dev/null 2>&1; then
+            echo "::error::No .geode files in build output"
+            exit 1
+          fi
+          echo ".geode files to upload:"
+          ls -la ./release-files/*.geode
+
+      # Replace any existing release/tag with the same version so we can
+      # republish (e.g. workflow rerun for the same mod.json version)
+      # without duplicate-asset upload errors.
+      - name: Delete previous release with same tag (if it exists)
         env:
           GH_TOKEN: ${{ secrets.ZBOT_GITHUB_PAT || secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
+          TAG: ${{ steps.modver.outputs.version }}
         run: |
           set -e
-          echo "Looking for existing release with tag 'latest'..."
-          if gh release view latest --repo "$REPO" >/dev/null 2>&1; then
-            echo "Deleting existing release..."
-            gh release delete latest --repo "$REPO" --yes --cleanup-tag
+          echo "Looking for existing release with tag '$TAG'..."
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            echo "Deleting existing release $TAG..."
+            gh release delete "$TAG" --repo "$REPO" --yes --cleanup-tag
           else
-            echo "No existing 'latest' release."
+            echo "No existing release for $TAG."
           fi
 
-      - name: Publish rolling "latest" GitHub Release
+      - name: Publish ${{ steps.modver.outputs.version }} GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest
-          name: ZBOT-MOBILE (latest build)
+          tag_name: ${{ steps.modver.outputs.version }}
+          name: ZBOT-MOBILE ${{ steps.modver.outputs.version }}
           body: |
-            Automated Android build of ZBOT-MOBILE — this release is
-            replaced every time `main` is updated, so the files below
-            are always the freshest build.
+            Automated Android build of ZBOT-MOBILE ${{ steps.modver.outputs.version }}.
 
             **Build:** #${{ github.run_number }}
             **Commit:** ${{ github.sha }}
@@ -108,7 +140,7 @@ jobs:
 
             Macros will be saved to:
             `/storage/emulated/0/Android/media/com.geode.launcher/game/geode/macros/`
-          files: ./release-files/*
+          files: ./release-files/*.geode
           target_commitish: ${{ github.sha }}
           prerelease: false
           make_latest: "true"
