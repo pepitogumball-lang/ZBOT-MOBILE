@@ -191,8 +191,13 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
 
                     // Mark the upcoming handleButton as a spam-emitted
                     // event so the record hook can choose to skip it.
+                    // Route through this->handleButton so the modify
+                    // chain (record hook included) actually sees it --
+                    // a qualified GJBaseGameLayer::handleButton call
+                    // would skip every other hook and silently break
+                    // the spamRecordToMacro flag.
                     mgr->spamSuppressRecord = true;
-                    GJBaseGameLayer::handleButton(wantDown, button, !isP2);
+                    this->handleButton(wantDown, button, !isP2);
                     mgr->spamSuppressRecord = false;
                 };
 
@@ -203,17 +208,19 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
                 if (wantP2) driveButton(1, true);
             } else {
                 // Gate closed: release any held spam button so the
-                // player isn't stuck holding jump while paused.
+                // player isn't stuck holding jump while paused. Same
+                // routing rule as the press path -- this->handleButton
+                // so the modify chain stays consistent.
                 if (m_fields->spamHeld[0] || m_fields->spamHeld[1]) {
                     int button = mgr->spamButton;
                     if (button < 1 || button > 3) button = 1;
                     mgr->spamSuppressRecord = true;
                     if (m_fields->spamHeld[0]) {
-                        GJBaseGameLayer::handleButton(false, button, true);
+                        this->handleButton(false, button, true);
                         m_fields->spamHeld[0] = false;
                     }
                     if (m_fields->spamHeld[1]) {
-                        GJBaseGameLayer::handleButton(false, button, false);
+                        this->handleButton(false, button, false);
                         m_fields->spamHeld[1] = false;
                     }
                     mgr->spamSuppressRecord = false;
@@ -227,11 +234,11 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
             if (button < 1 || button > 3) button = 1;
             mgr->spamSuppressRecord = true;
             if (m_fields->spamHeld[0]) {
-                GJBaseGameLayer::handleButton(false, button, true);
+                this->handleButton(false, button, true);
                 m_fields->spamHeld[0] = false;
             }
             if (m_fields->spamHeld[1]) {
-                GJBaseGameLayer::handleButton(false, button, false);
+                this->handleButton(false, button, false);
                 m_fields->spamHeld[1] = false;
             }
             mgr->spamSuppressRecord = false;

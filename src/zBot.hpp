@@ -6,7 +6,7 @@
 
 using namespace geode::prelude;
 
-#define ZBOT_VERSION "v1.5.0"
+#define ZBOT_VERSION "v1.5.1"
 
 enum zState {
     NONE, RECORD, PLAYBACK
@@ -90,6 +90,13 @@ public:
 
     // ----- Per-attempt state ------------------------------------------------
     bool levelCompleted = false;
+
+    // Set by levelComplete() when it has already auto-saved the macro
+    // for this run. The matching onExit() hook checks this and skips
+    // its own save so we don't write the exact same .gdr file twice
+    // every time a perfect run finishes (once on completion, once
+    // again as the level scene tears down).
+    bool autoSavedThisRun = false;
 
     // Tracked button state per player so dedupe works without scanning the
     // whole input list every frame.

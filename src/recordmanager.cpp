@@ -142,6 +142,10 @@ class $modify(zRecPL, PlayLayer) {
             mgr->levelCompleted = true;
             if (mgr->autoSave) {
                 mgr->currentReplay->save(mgr->minHoldFrames, mgr->minGapFrames);
+                // Mark that the completion path already wrote the file
+                // so onExit doesn't redundantly save the exact same
+                // macro a second time when the level scene is torn down.
+                mgr->autoSavedThisRun = true;
                 Notification::create("Perfect macro saved",
                     NotificationIcon::Success, 1.5f)->show();
             }
@@ -162,11 +166,17 @@ class $modify(zRecPL, PlayLayer) {
 
     void onExit() {
         zBot* mgr = zBot::get();
-        if (mgr->state == RECORD && mgr->currentReplay && mgr->autoSave) {
+        if (mgr->state == RECORD && mgr->currentReplay && mgr->autoSave
+            && !mgr->autoSavedThisRun) {
             // Perfect-run gate: only auto-save if the player legitimately
             // finished the level. Quitting mid-attempt leaves the saved
             // macro on disk untouched so a half-baked retry session
             // can't clobber a previously saved masterpiece.
+            //
+            // The autoSavedThisRun guard avoids the double-write that
+            // used to happen when levelComplete() already saved the
+            // macro and then onExit() saved the identical file again
+            // a moment later as the scene tore down.
             //
             // Users can still hit "Save" manually from the GUI to write
             // an in-progress recording — that path bypasses this gate.
@@ -174,6 +184,9 @@ class $modify(zRecPL, PlayLayer) {
                 mgr->currentReplay->save(mgr->minHoldFrames, mgr->minGapFrames);
             }
         }
+        // Clear the dedupe flag so the next level's auto-save isn't
+        // accidentally suppressed.
+        mgr->autoSavedThisRun = false;
         PlayLayer::onExit();
     }
 };

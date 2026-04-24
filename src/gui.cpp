@@ -11,19 +11,25 @@
 
 using namespace geode::prelude;
 
-// Block '.' from macro names. The .gdr extension is appended automatically
-// at save time, so a name with a dot in it would create files like
-// "my.macro.gdr" which break the load lookup.
-static int blockDots(ImGuiInputTextCallbackData* data) {
-    if (data->EventChar == '.') return 1; // reject
+// Block characters that would break the on-disk filename:
+//   '.' would collide with the auto-appended ".gdr" extension and make
+//       the load lookup fail (e.g. "my.macro.gdr" wouldn't be found by
+//       fromFile("my.macro")).
+//   '/' and '\\' would let the user escape the macros directory entirely
+//       and write outside the sandbox.
+static int blockBadNameChars(ImGuiInputTextCallbackData* data) {
+    auto c = data->EventChar;
+    if (c == '.' || c == '/' || c == '\\') return 1; // reject
     return 0;
 }
 
-// Strip any stray '.' that may have made it into the buffer (e.g. via
-// paste, since the input filter only catches typed chars).
+// Strip any bad chars that may have made it into the buffer through a
+// paste (the InputText filter only catches typed chars, not paste).
 static std::string sanitizeName(const char* raw) {
     std::string out(raw);
-    out.erase(std::remove(out.begin(), out.end(), '.'), out.end());
+    out.erase(std::remove_if(out.begin(), out.end(), [](char c){
+        return c == '.' || c == '/' || c == '\\';
+    }), out.end());
     return out;
 }
 
@@ -342,14 +348,26 @@ void GUI::renderMacroTab() {
     ImGui::Separator();
     ImGui::TextDisabled("No dots; the .gdr extension is added automatically.");
     ImGui::InputText("Name", mgr->loadName, IM_ARRAYSIZE(mgr->loadName),
-        ImGuiInputTextFlags_CallbackCharFilter, blockDots);
+        ImGuiInputTextFlags_CallbackCharFilter, blockBadNameChars);
 
     if (ImGui::Button("Save")) {
         if (mgr->currentReplay) {
             std::string clean = sanitizeName(mgr->loadName);
             if (!clean.empty()) mgr->currentReplay->name = clean;
             mgr->currentReplay->save(mgr->minHoldFrames, mgr->minGapFrames);
-            macrosDirty = true;
+
+            // Refresh and auto-select the just-saved macro by name so
+            // the next Replay tap acts on it without a manual scroll.
+            std::string savedName = mgr->currentReplay->name;
+            refreshMacros();
+            selectedMacro = -1;
+            for (int i = 0; i < (int)macros.size(); ++i) {
+                if (macros[i].name == savedName) { selectedMacro = i; break; }
+            }
+            // Clear any active filter so the new entry isn't hidden
+            // behind a stale search term.
+            macroFilter[0] = '\0';
+
             Notification::create("Macro saved", NotificationIcon::Success, 1.0f)->show();
         } else {
             Notification::create("Nothing to save", NotificationIcon::Warning, 1.5f)->show();
@@ -502,12 +520,27 @@ void GUI::renderMacroTab() {
 
     if (!hasSel) ImGui::BeginDisabled();
 
-    // Single big "Replay" button: loads the selected macro from disk,
-    // arms PLAYBACK regardless of the Home tab radio, and bumps the
-    // playback epoch so the cursor restarts from input 0 the next time
-    // the level (re)starts. Workflow: tap macro -> tap Replay ->
-    // restart the level -> macro plays.
-    if (ImGui::Button("Replay", ImVec2(-1, 36.f))) {
+    // Two action buttons, laid out side by side for easy thumb tapping
+    // on a phone. Delete is on the left (smaller, secondary, neutral
+    // styling) and Replay is on the right (primary, takes the rest of
+    // the width, accent-coloured via the default theme). Total height
+    // 38 px so both are comfortable touch targets.
+    constexpr float kActionHeight  = 38.f;
+    constexpr float kDeleteWidth   = 110.f;
+    constexpr float kInnerSpacing  = 8.f;
+
+    if (ImGui::Button("Delete", ImVec2(kDeleteWidth, kActionHeight))) {
+        ImGui::OpenPopup("Delete macro?");
+    }
+    ImGui::SameLine(0.f, kInnerSpacing);
+
+    // Replay: loads the selected macro from disk, arms PLAYBACK
+    // regardless of the Home tab radio, and bumps the playback epoch
+    // so the cursor restarts from input 0 the next time the level
+    // (re)starts. Workflow: tap macro -> tap Replay -> restart the
+    // level -> macro plays. Same semantics as matcool/ReplayBot's
+    // "Play" action and FigmentBoy/zBot's load-and-arm flow.
+    if (ImGui::Button("Replay", ImVec2(-1.f, kActionHeight))) {
         const std::string& n = macros[selectedMacro].name;
         zReplay* r = zReplay::fromFile(n);
         if (r) {
@@ -524,10 +557,6 @@ void GUI::renderMacroTab() {
             Notification::create("Failed to load macro",
                 NotificationIcon::Error, 1.5f)->show();
         }
-    }
-
-    if (ImGui::Button("Delete", ImVec2(-1, 30.f))) {
-        ImGui::OpenPopup("Delete macro?");
     }
 
     if (!hasSel) ImGui::EndDisabled();

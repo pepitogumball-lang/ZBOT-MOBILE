@@ -29,7 +29,6 @@ mod.json                   Geode mod manifest
 web/index.html             Replit info page (see "Replit setup" below)
 serve.py                   Tiny static HTTP server for the info page
 ```
-
 ## Replit setup
 
 Because the actual mod cannot be compiled or executed inside Replit (it
@@ -264,3 +263,38 @@ on every push to `main`. Drop the produced `.geode` file into:
   - `src/zBot.hpp`: bumped `ZBOT_VERSION` to `v1.5.0`.
   - `mod.json`: bumped version to `v1.5.0`.
   - `web/index.html`: bumped version badge + summary copy to v1.5.0.
+- 2026-04-24: v1.5.1 macro tab two-button layout + correctness sweep.
+  - **Macro tab: Delete + Replay as two side-by-side buttons.** The
+    Replay/Delete pair under the saved-macros list is now laid out
+    horizontally on a single row, with Delete on the left (fixed
+    110 px secondary action) and Replay on the right (primary, takes
+    the rest of the row). Both at 38 px height for comfortable touch.
+    `src/gui.cpp::renderMacroTab` rewrite of the action-button block.
+  - **Spam emissions go through the modify chain.** `src/playbackmanager.cpp`
+    used `GJBaseGameLayer::handleButton(...)` (qualified) to emit the
+    autoclicker's synthetic presses. That call bypasses the modify
+    chain entirely, which silently broke the `spamRecordToMacro`
+    setting (the recording hook never saw the events). Switched all
+    six spam emission sites to `this->handleButton(...)`. The
+    `spamSuppressRecord` flag still gates whether the record hook
+    actually persists the event, so `spamRecordToMacro = false` keeps
+    its existing "macros stay clean" guarantee.
+  - **No more double auto-save on level complete.** `src/recordmanager.cpp::levelComplete`
+    saved the macro, then `onExit` saved the same file again as the
+    scene tore down. Added `zBot::autoSavedThisRun` to dedupe — set
+    by `levelComplete`, checked and cleared by `onExit`.
+  - **Macro filename sanitization tightened.** `src/gui.cpp` previously
+    blocked `.` from typed input but allowed `/` and `\\` through, and
+    a paste could still smuggle a dot in. Renamed
+    `blockDots` -> `blockBadNameChars` (rejects `.`, `/`, `\\` at the
+    InputText callback) and updated `sanitizeName` to strip all three
+    on a paste/load path.
+  - **Save now auto-selects the just-saved macro.** `src/gui.cpp` Save
+    button refreshes the macro list, finds the saved name, sets
+    `selectedMacro` accordingly, and clears `macroFilter` so a stale
+    search term can't hide the new entry. One tap on Replay
+    immediately after Save just works.
+  - `src/zBot.hpp`: added `autoSavedThisRun` field; bumped
+    `ZBOT_VERSION` to `v1.5.1`.
+  - `mod.json`: bumped version to `v1.5.1`.
+  - `web/index.html`: bumped version badge + summary copy to v1.5.1.
