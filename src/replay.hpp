@@ -5,6 +5,11 @@
 #include <gdr/gdr.hpp>
 #include <fstream>
 #include <filesystem>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <system_error>
+#include <cctype>
 
 using namespace geode::prelude;
 
@@ -80,6 +85,57 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
         }
 
         return nullptr;
+    }
+
+    // Enumerate every .gdr file in the macros directory and return the
+    // names sans extension. Sorted alphabetically so the in-game list
+    // stays stable between refreshes. Errors are swallowed: an unreadable
+    // directory just yields an empty vector so the GUI renders cleanly.
+    static std::vector<std::string> listSaved() {
+        std::vector<std::string> names;
+        auto dir = macrosDir();
+
+        std::error_code ec;
+        if (!std::filesystem::exists(dir, ec)) {
+            std::filesystem::create_directories(dir, ec);
+            return names;
+        }
+
+        for (auto const& entry : std::filesystem::directory_iterator(dir, ec)) {
+            if (ec) break;
+            if (!entry.is_regular_file(ec)) continue;
+            if (entry.path().extension() != ".gdr") continue;
+            names.push_back(entry.path().stem().string());
+        }
+
+        std::sort(names.begin(), names.end(),
+            [](const std::string& a, const std::string& b) {
+                // Case-insensitive sort so "Alpha" and "alpha" sit next
+                // to each other in the list.
+                return std::lexicographical_compare(
+                    a.begin(), a.end(), b.begin(), b.end(),
+                    [](char x, char y) {
+                        return std::tolower(static_cast<unsigned char>(x)) <
+                               std::tolower(static_cast<unsigned char>(y));
+                    });
+            });
+
+        return names;
+    }
+
+    // Delete a macro from disk by its display name (no extension).
+    // Returns true on successful removal.
+    static bool deleteByName(const std::string& fileName) {
+        if (fileName.empty()) return false;
+        auto dir = macrosDir();
+        std::error_code ec;
+        bool ok = std::filesystem::remove(dir / (fileName + ".gdr"), ec);
+        if (!ok) {
+            // Fall back to the raw name in case the file was saved
+            // without the standard extension.
+            ok = std::filesystem::remove(dir / fileName, ec);
+        }
+        return ok;
     }
 
     void purgeAfter(int frame) {

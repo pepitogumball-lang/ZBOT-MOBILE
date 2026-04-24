@@ -62,4 +62,16 @@ on every push to `main`. Drop the produced `.geode` file into:
 
 - 2026-04-24: Imported repo into Replit. Added `web/index.html` and `serve.py`
   to satisfy the Replit workflow requirement with a static info page on
-  port 5000. No mod source code was modified.
+  port 5000.
+- 2026-04-24: v1.1.0 mod menu overhaul.
+  - `src/gui.hpp` / `src/gui.cpp`: replaced the "Show ZBOT" rectangle with a
+    draggable circular floating ball (tap to toggle, drag to move, with a
+    state dot showing record/playback). Added a big X close button. Added a
+    saved-macros browser (list, load, play, delete with confirm) and a
+    clock-based speedhack section with preset buttons (0, 0.1, 0.25, 0.5,
+    1x, 2x, 3x, 4x) plus free-form numeric input. Speed `0` means "no
+    speedhack effect" (matches xdBot semantics).
+  - `src/replay.hpp`: added `zReplay::listSaved()` and
+    `zReplay::deleteByName()` so the GUI can enumerate / remove `.gdr`
+    macros on disk.
+  - `mod.json`: bumped version to `v1.1.0`.
