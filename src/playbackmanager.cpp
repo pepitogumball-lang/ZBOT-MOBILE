@@ -34,7 +34,6 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
                 if (mgr->clickbotEnabled) {
                     mgr->playSound(click.player2, click.button, click.down);
                 }
-                clickBotIndex++;
             }
         }
     }

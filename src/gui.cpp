@@ -2,8 +2,17 @@
 #include "zBot.hpp"
 #include "replay.hpp"
 #include <Geode/modify/LoadingLayer.hpp>
+#include <Geode/ui/Notification.hpp>
 
 using namespace geode::prelude;
+
+// Block '.' from macro names. The .gdr extension is appended automatically
+// at save time, so a name with a dot in it would create files like
+// "my.macro.gdr" which break the load lookup.
+static int blockDots(ImGuiInputTextCallbackData* data) {
+    if (data->EventChar == '.') return 1; // reject
+    return 0;
+}
 
 void GUI::renderReplayInfo() {
     zBot* mgr = zBot::get();
@@ -83,22 +92,33 @@ void GUI::renderMainPanel() {
     ImGui::Separator();
 
     // ---- Macro IO ----
-    ImGui::Text("Macro file");
-    ImGui::InputText("Name", mgr->loadName, IM_ARRAYSIZE(mgr->loadName));
+    ImGui::Text("Macro file (no dots, .gdr is added automatically)");
+    ImGui::InputText("Name", mgr->loadName, IM_ARRAYSIZE(mgr->loadName),
+        ImGuiInputTextFlags_CallbackCharFilter, blockDots);
 
     if (ImGui::Button("Save")) {
         if (mgr->currentReplay) {
-            if (mgr->loadName[0] != '\0') mgr->currentReplay->name = mgr->loadName;
+            // Defensive strip in case anything else (paste, etc.) sneaks
+            // a dot past the input filter.
+            std::string clean(mgr->loadName);
+            clean.erase(std::remove(clean.begin(), clean.end(), '.'), clean.end());
+            if (!clean.empty()) mgr->currentReplay->name = clean;
             mgr->currentReplay->save();
+            Notification::create("Macro saved", NotificationIcon::Success, 1.0f)->show();
         }
     }
     ImGui::SameLine();
     if (ImGui::Button("Load")) {
-        if (mgr->loadName[0] != '\0') {
-            zReplay* r = zReplay::fromFile(mgr->loadName);
+        std::string clean(mgr->loadName);
+        clean.erase(std::remove(clean.begin(), clean.end(), '.'), clean.end());
+        if (!clean.empty()) {
+            zReplay* r = zReplay::fromFile(clean);
             if (r) {
                 if (mgr->currentReplay) delete mgr->currentReplay;
                 mgr->currentReplay = r;
+                Notification::create("Macro loaded", NotificationIcon::Success, 1.0f)->show();
+            } else {
+                Notification::create("Macro not found", NotificationIcon::Error, 1.5f)->show();
             }
         }
     }
