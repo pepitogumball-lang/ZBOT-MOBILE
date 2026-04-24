@@ -6,7 +6,7 @@
 
 using namespace geode::prelude;
 
-#define ZBOT_VERSION "v1.4.0"
+#define ZBOT_VERSION "v1.4.1"
 
 enum zState {
     NONE, RECORD, PLAYBACK
@@ -84,6 +84,7 @@ public:
     bool hideWhilePlaying = false; // hide menu unless game is paused
     bool hideAfterFinish  = false; // hide menu after a level is completed
     bool onlyShowInMenu   = false; // hide whenever PlayLayer is loaded
+    bool hideInEditor     = false; // hide menu while editing a level
 
     // Runtime-only flag flipped on by levelComplete and flipped off on
     // MenuLayer::init (i.e. once the player returns to the main menu).
@@ -175,6 +176,7 @@ public:
         m->setSavedValue<bool>  ("hideWhilePlaying",   hideWhilePlaying);
         m->setSavedValue<bool>  ("hideAfterFinish",    hideAfterFinish);
         m->setSavedValue<bool>  ("onlyShowInMenu",     onlyShowInMenu);
+        m->setSavedValue<bool>  ("hideInEditor",       hideInEditor);
     }
 
     void loadSettings() {
@@ -213,6 +215,7 @@ public:
         hideWhilePlaying   = m->getSavedValue<bool>  ("hideWhilePlaying",   hideWhilePlaying);
         hideAfterFinish    = m->getSavedValue<bool>  ("hideAfterFinish",    hideAfterFinish);
         onlyShowInMenu     = m->getSavedValue<bool>  ("onlyShowInMenu",     onlyShowInMenu);
+        hideInEditor       = m->getSavedValue<bool>  ("hideInEditor",       hideInEditor);
     }
 
     void playSound(bool p2, int button, bool down);

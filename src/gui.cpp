@@ -3,6 +3,7 @@
 #include "replay.hpp"
 #include <Geode/modify/LoadingLayer.hpp>
 #include <Geode/modify/MenuLayer.hpp>
+#include <Geode/modify/LevelEditorLayer.hpp>
 #include <Geode/ui/Notification.hpp>
 
 #include <algorithm>
@@ -782,11 +783,17 @@ void GUI::renderSettingsTab() {
         ImGui::SetTooltip("Hide the menu once the level is completed.\n"
                           "It reappears when you return to the main menu.");
     }
+    stDirty |= ImGui::Checkbox("Hide while editing a level", &mgr->hideInEditor);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Hide the menu while you're inside the level\n"
+                          "editor. Doesn't affect editor test play.");
+    }
     stDirty |= ImGui::Checkbox("Only show in main menu", &mgr->onlyShowInMenu);
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Master switch: keep the menu hidden whenever\n"
-                          "you're inside a level (paused or otherwise).\n"
-                          "Only appears on the main menu / level select.");
+                          "you're inside a level (paused or otherwise)\n"
+                          "or inside the editor. Only appears on the\n"
+                          "main menu / level select.");
     }
 
     ImGui::Spacing();
@@ -888,27 +895,32 @@ void GUI::renderMainPanel() {
 // Visibility decision
 // ---------------------------------------------------------------------------
 //
-// Combines the user's three visibility toggles with the live scene
-// state to decide whether the floating ball + panel should render this
-// frame at all. The flags compose as follows (most restrictive first):
+// Combines the user's visibility toggles with the live scene state to
+// decide whether the floating ball + panel should render this frame at
+// all. The flags compose as follows (most restrictive first):
 //
-//   onlyShowInMenu  -> hide whenever any PlayLayer is active
+//   onlyShowInMenu  -> hide whenever any PlayLayer / editor is active
 //   hideAfterFinish -> hide once a level is completed (until menu)
 //   hideWhilePlaying-> hide while in a level and not paused
+//   hideInEditor    -> hide while inside the level editor
 //
 // PlayLayer::get() being non-null means we're inside a level (paused
-// or otherwise). CCDirector::isPaused() flips on while the pause menu
-// is up, which is the conventional "paused" check on cocos2d-x.
+// or otherwise). PlayLayer::m_isPaused is the canonical pause flag;
+// CCDirector::isPaused() is unreliable on Android because GD's pause
+// menu overlays the scene without always pausing the director.
+// LevelEditorLayer::get() being non-null means we're in the editor.
 bool GUI::shouldRenderHud() {
     zBot* mgr = zBot::get();
-    auto* pl = PlayLayer::get();
-    bool inLevel = pl != nullptr;
-    bool paused  = inLevel && cocos2d::CCDirector::sharedDirector() &&
-                   cocos2d::CCDirector::sharedDirector()->isPaused();
+    auto* pl  = PlayLayer::get();
+    auto* led = LevelEditorLayer::get();
+    bool inLevel  = pl != nullptr;
+    bool inEditor = led != nullptr && pl == nullptr;
+    bool paused   = inLevel && pl->m_isPaused;
 
-    if (mgr->onlyShowInMenu && inLevel) return false;
+    if (mgr->onlyShowInMenu && (inLevel || inEditor)) return false;
     if (mgr->hideAfterFinish && mgr->hudHiddenAfterFinish) return false;
     if (mgr->hideWhilePlaying && inLevel && !paused) return false;
+    if (mgr->hideInEditor && inEditor) return false;
 
     return true;
 }
@@ -951,9 +963,19 @@ class $modify(zLoadingLayer, LoadingLayer) {
 
 // Returning to the main menu clears the "level just finished" HUD-hide
 // flag so the user can find the menu again after a successful run.
+// We also clear it on entering the editor (different scene from the
+// finished level) so the user isn't stuck without a menu while editing.
 class $modify(zMenuLayer, MenuLayer) {
     bool init() {
         if (!MenuLayer::init()) return false;
+        zBot::get()->hudHiddenAfterFinish = false;
+        return true;
+    }
+};
+
+class $modify(zEditorLayer, LevelEditorLayer) {
+    bool init(GJGameLevel* level, bool unk) {
+        if (!LevelEditorLayer::init(level, unk)) return false;
         zBot::get()->hudHiddenAfterFinish = false;
         return true;
     }

@@ -157,3 +157,26 @@ on every push to `main`. Drop the produced `.geode` file into:
     `minHoldFrames` / `minGapFrames` spacing inputs. Header bumped to
     v1.4.0 (sourced from `ZBOT_VERSION`).
   - `mod.json`: bumped version to `v1.4.0`.
+- 2026-04-24: v1.4.1 visibility/playback bugfixes inspired by EclipseMenu.
+  - `src/playbackmanager.cpp`: added `lastState` to the `$modify`
+    Fields so PLAYBACK that's armed mid-level (without dying or a
+    scene change) forces a cursor resync. Without this, a previously
+    idle PlayLayer with a loaded macro would replay every input from
+    index 0 in a single frame the moment PLAYBACK was toggled on,
+    instantly bricking the level. Spam loop now also requires
+    `PlayLayer::get() != nullptr` (no spam in the editor's edit
+    mode) and uses `PlayLayer::m_isPaused` instead of
+    `CCDirector::isPaused()` for the "only while playing" gate
+    (the director flag is unreliable on Android; GD's pause menu
+    overlays the scene without always pausing the director).
+  - `src/gui.cpp`: `shouldRenderHud()` switched to
+    `PlayLayer::m_isPaused` for the same reason. New "Hide while
+    editing a level" toggle distinguishes the editor from in-level
+    so users can keep the menu in test play but hide it while
+    placing blocks. Added a `LevelEditorLayer::init` hook that
+    clears `hudHiddenAfterFinish` on entering the editor (so a
+    finished level followed by a jump into the editor doesn't leave
+    the menu permanently hidden).
+  - `src/zBot.hpp`: added `hideInEditor` field with persistence,
+    bumped `ZBOT_VERSION` to `v1.4.1`.
+  - `mod.json`: bumped version to `v1.4.1`.

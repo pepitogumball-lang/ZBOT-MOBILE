@@ -25,11 +25,16 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
         int currIndex      = 0;
         int clickBotIndex  = 0;
 
-        // Resync triggers: a new replay was loaded, or the in-game
-        // frame went backwards (death without our resetLevel hook
-        // firing first, e.g. some practice-mode rewinds).
+        // Resync triggers: a new replay was loaded, the in-game frame
+        // went backwards (death without our resetLevel hook firing
+        // first, e.g. some practice-mode rewinds), or the user just
+        // armed PLAYBACK mid-level (state transition NONE/RECORD ->
+        // PLAYBACK without a scene change). Without the lastState
+        // check, arming mid-level would replay every input from index
+        // 0 in a single frame and brick the level.
         zReplay* lastReplay = nullptr;
         int      lastFrame  = -1;
+        int      lastState  = NONE;
 
         // Spam state: tracked button state per player so we only emit
         // events on transitions, and the frame the spammer was first
@@ -48,17 +53,23 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
 
         zBot* mgr = zBot::get();
         int frame = static_cast<int>(m_gameState.m_currentProgress);
+        auto* pl = PlayLayer::get();
+        bool inLevel = pl != nullptr;
 
         // ---- Playback ------------------------------------------------------
         if (mgr->state == PLAYBACK && mgr->currentReplay) {
-            // Re-sync indexes when the replay pointer changes (user
-            // loaded a different macro mid-level) or when the frame
-            // went backwards (death without a resetLevel hook firing
-            // first). Without this, the playback would replay every
-            // input from index 0 in a single frame, instantly bricking
-            // the level.
+            // Re-sync indexes when:
+            //  - the replay pointer changes (user loaded a different
+            //    macro mid-level)
+            //  - the frame went backwards (death without a resetLevel
+            //    hook firing first)
+            //  - the previous tick was NOT in PLAYBACK state (user just
+            //    toggled it on without dying / changing scene)
+            // Without this, playback would replay every input from
+            // index 0 in a single frame and instantly brick the level.
             if (m_fields->lastReplay != mgr->currentReplay ||
-                frame < m_fields->lastFrame) {
+                frame < m_fields->lastFrame ||
+                m_fields->lastState != PLAYBACK) {
                 m_fields->currIndex     = 0;
                 m_fields->clickBotIndex = 0;
                 m_fields->lastReplay    = mgr->currentReplay;
@@ -69,6 +80,7 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
                 m_fields->clickBotIndex = m_fields->currIndex;
             }
             m_fields->lastFrame = frame;
+            m_fields->lastState = PLAYBACK;
 
             while (m_fields->currIndex < (int)mgr->currentReplay->inputs.size() &&
                    mgr->currentReplay->inputs[m_fields->currIndex].frame < frame) {
@@ -88,9 +100,12 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
             }
         } else {
             // Idle / record: keep lastFrame pegged so a future arming
-            // of playback resyncs cleanly.
-            m_fields->lastFrame = frame;
+            // of playback resyncs cleanly. lastState is recorded so
+            // the PLAYBACK branch above can detect the transition and
+            // force a resync even when nothing else changed.
+            m_fields->lastFrame  = frame;
             m_fields->lastReplay = mgr->currentReplay;
+            m_fields->lastState  = mgr->state;
         }
 
         // ---- Built-in spammer / autoclicker --------------------------------
@@ -99,12 +114,16 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
         // doesn't lurch when toggled mid-level. Bypasses recording by
         // default (see the spamSuppressRecord flag) so saved macros
         // stay clean.
-        if (mgr->spamEnabled) {
+        if (mgr->spamEnabled && inLevel) {
             // Optional gate: only spam while the level is actively
             // being played (not paused, not in a transition).
+            // PlayLayer::m_isPaused is the canonical pause flag --
+            // CCDirector::isPaused() is unreliable on Android because
+            // GD's pause menu overlays the scene without pausing the
+            // director on every code path.
             bool gateOk = true;
             if (mgr->spamOnlyDuringPlay) {
-                gateOk = !cocos2d::CCDirector::sharedDirector()->isPaused();
+                gateOk = !pl->m_isPaused;
             }
 
             if (gateOk) {
