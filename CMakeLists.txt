@@ -9,9 +9,6 @@ endif()
 # Link the Geode SDK
 add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
 
-# Setup the mod (ID from mod.json)
-setup_geode_mod(pepitogumball.zbot_mobile)
-
 # CPM for dependencies
 include(FetchContent)
 if(NOT CPM_BINARY_DIR)
@@ -29,9 +26,9 @@ endif()
 CPMAddPackage("gh:maxnut/GDReplayFormat#9c32b5529067901418ea6e4dfbd36437dc8712bc")
 CPMAddPackage("gh:matcool/gd-imgui-cocos#8973953519fa05d81c61634e585559ab87ca559d")
 
-# Note: add_geode_mod automatically adds the SHARED library target
+# add_geode_mod uses the first argument as both the target name and the mod ID by default
 add_geode_mod(
-    ZBOT_MOBILE
+    pepitogumball.zbot_mobile
     RESOURCES resources
     SOURCES
         src/main.cpp
@@ -39,4 +36,4 @@ add_geode_mod(
         src/gui.cpp
 )
 
-target_link_libraries(ZBOT_MOBILE PUBLIC libGDR imgui-cocos)
+target_link_libraries(pepitogumball.zbot_mobile PUBLIC libGDR imgui-cocos)
