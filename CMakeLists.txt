@@ -20,7 +20,7 @@ if(NOT CPM_BINARY_DIR)
 endif()
 
 CPMAddPackage("gh:maxnut/GDReplayFormat#9c32b5529067901418ea6e4dfbd36437dc8712bc")
-CPMAddPackage("gh:matcool/gd-imgui-cocos#8973953519fa05d81c61634e585559ab87ca559d")
+CPMAddPackage("gh:matcool/gd-imgui-cocos#1ed2f931b49e6d00e3f03abe54fb995b6f02007b")
 
 # Add the sources
 set(SOURCES
