@@ -1,68 +1,82 @@
 # Credits
 
 ZBOT-MOBILE is **not an original work**. It is a mobile-focused port and
-extension of an existing Geode mod, and the bulk of the design and many
-core ideas come from other community projects. Full attribution below.
+extension of existing Geometry Dash macro / replay tools built within
+the Geode ecosystem. This project reuses ideas, structure, and in some
+cases adapted code from prior community work. Full attribution below.
 
-## Original mod
+## Original work
 
-- **zBot** by **zilko** — the original macro / replay tool that this
-  project is derived from. The recording and playback model, the
-  `zReplay` data layout in `src/replay.hpp`, the `zState` enum, the
-  recordmanager / playbackmanager split and the speedhack approach all
-  come from zilko's zBot.
-  Upstream: https://github.com/FigmentBoy/zBot
+- **zBot** — original macro / replay system implementation  
+  Primary upstream reference: https://github.com/FigmentBoy/zBot  
 
-ZBOT-MOBILE would not exist without zilko's work. zilko is listed as a
-co-developer in `mod.json` and credited here.
+The core concepts used in this project — including recording,
+playback flow, replay structure (`zReplay`), and state handling
+(`zState`) — are derived from this implementation and related
+community iterations.
 
-## Inspiration / reference implementations
+ZBOT-MOBILE would not exist without these prior works.
 
-These mods were used as references for specific behaviours and are
-credited because their mechanics directly informed equivalent code in
-this fork:
+---
 
-- **matcool / ReplayBot** — canonical playback semantics (record raw
-  `m_currentProgress`, fire on `frame <= currentProgress`, restart cursor
-  on every `resetLevel`).
-- **FigmentBoy / zBot** — same playback semantics, used as a
-  cross-reference.
-- **EclipseMenu** — the dark/violet ImGui theme, tabbed layout and
-  saved-macros search filter style.
-- **xdBot** / **EclipseMenu** — clock-style speedhack approach
-  (delta-time scaling + matching FMOD pitch hook).
+## Additional references / inspirations
+
+The following projects influenced specific systems and behaviors:
+
+- **ReplayBot (matcool)**  
+  Playback timing model, restart semantics, and frame-based triggering.
+
+- **zBot variants (community forks)**  
+  Cross-reference for consistency in replay handling and structure.
+
+- **EclipseMenu**  
+  UI style inspiration (dark theme, tab layout, macro list structure).
+
+- **xdBot / EclipseMenu**  
+  Speedhack design (delta-time scaling and optional audio pitch sync).
+
+---
 
 ## Libraries
 
-Pulled in via CPM in `CMakeLists.txt`:
+Used via CPM in `CMakeLists.txt`:
 
-- **Geode SDK** — https://github.com/geode-sdk/geode
-- **GDReplayFormat** by **maxnut** —
-  https://github.com/maxnut/GDReplayFormat
-- **gd-imgui-cocos** by **matcool** —
-  https://github.com/matcool/gd-imgui-cocos
+- **Geode SDK**  
+  https://github.com/geode-sdk/geode  
+
+- **GDReplayFormat** (maxnut)  
+  https://github.com/maxnut/GDReplayFormat  
+
+- **gd-imgui-cocos** (matcool)  
+  https://github.com/matcool/gd-imgui-cocos  
+
+---
 
 ## What is original to ZBOT-MOBILE
 
-- The mobile-friendly always-visible draggable floating ball UI that
-  replaces the keyboard-driven panel toggle.
-- Touch-first tab layout sized for small screens.
-- The "perfect run only" auto-save gate with checkpoint-based purge.
-- Spam-safe macro normalization (`minHoldFrames`, `minGapFrames`).
-- Built-in autoclicker / spammer with CPS + hold-ratio sliders, with
-  an opt-in record-to-macro flag.
-- Persistent settings via Geode's per-mod save store.
-- Android32 / Android64 CI build pipeline in
-  `.github/workflows/build.yml`.
+- Mobile-first UI (floating draggable button instead of keyboard toggle)
+- Touch-optimized layout and controls
+- "Perfect run only" auto-save system
+- Spam-safe input normalization (`minHoldFrames`, `minGapFrames`)
+- Built-in autoclicker / spammer with configurable behavior
+- Optional exclusion of automated inputs from recordings
+- Persistent settings using Geode save system
+- Android32 / Android64 automated build pipeline
+
+---
 
 ## Maintainer
 
-- **pepitogumball** — mobile port and ongoing maintenance.
+- **pepitogumball** — mobile port, adaptation, and maintenance
 
-## License / reuse
+---
 
-This mod reuses code from zilko's zBot. If zilko or any of the authors
-listed above object to this fork or the way their work is credited,
-please open an issue on the upstream repository
-(https://github.com/pepitogumball-lang/ZBOT-MOBILE) and the mod will be
-updated or taken down accordingly.
+## License / attribution notice
+
+This project builds upon prior community work.  
+If any original authors believe attribution is missing or incorrect,
+please open an issue:
+
+https://github.com/pepitogumball-lang/ZBOT-MOBILE
+
+Credits will be updated accordingly or content will be adjusted if required.
