@@ -4,6 +4,7 @@
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/GJBaseGameLayer.hpp>
 #include <Geode/modify/PlayerObject.hpp>
+#include <Geode/ui/Notification.hpp>
 
 using namespace geode::prelude;
 
@@ -82,6 +83,17 @@ class $modify(zRecPL, PlayLayer) {
         if (mgr->state == RECORD && mgr->currentReplay) {
             mgr->currentReplay->save();
         }
+
+        // Auto-Safe Mode at the finish line: swallow the real
+        // levelComplete call so GD never counts the run, never grants
+        // stars/orbs/coins/diamonds and never submits to leaderboards.
+        // We just pop a tiny notification so the player knows the macro
+        // reached the end and the safety net kicked in.
+        if (mgr->autoSafeMode) {
+            Notification::create("safe mode :3", NotificationIcon::Success, 1.5f)->show();
+            return;
+        }
+
         PlayLayer::levelComplete();
     }
 

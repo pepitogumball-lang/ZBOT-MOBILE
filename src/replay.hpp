@@ -22,15 +22,28 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
 
     zReplay() : Replay("zBot-mobile", "1.0.0") {}
 
+    static std::filesystem::path macrosDir() {
+        // On Android, macros live in the launcher's external media folder
+        // so they survive uninstall and the user can browse them with any
+        // file manager. On other platforms (only used during local dev,
+        // since releases are Android-only) we fall back to the mod save dir.
+#ifdef GEODE_IS_ANDROID
+        return std::filesystem::path("/storage/emulated/0/Android/media/com.geode.launcher/game/geode/macros");
+#else
+        return geode::prelude::Mod::get()->getSaveDir() / "macros";
+#endif
+    }
+
     void save() {
         author = GJAccountManager::get()->m_username;
         duration = inputs.size() > 0
             ? static_cast<float>(inputs.back().frame) / static_cast<float>(framerate)
             : 0.f;
 
-        auto dir = geode::prelude::Mod::get()->getSaveDir() / "replays";
-        if (!std::filesystem::exists(dir)) {
-            std::filesystem::create_directories(dir);
+        auto dir = macrosDir();
+        std::error_code ec;
+        if (!std::filesystem::exists(dir, ec)) {
+            std::filesystem::create_directories(dir, ec);
         }
         std::ofstream f(dir / (name + ".gdr"), std::ios::binary);
 
@@ -41,8 +54,9 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
     }
 
     static zReplay* fromFile(const std::string& fileName) {
-        auto dir = geode::prelude::Mod::get()->getSaveDir() / "replays";
-        if (std::filesystem::exists(dir) || std::filesystem::create_directories(dir)) {
+        auto dir = macrosDir();
+        std::error_code ec;
+        if (std::filesystem::exists(dir, ec) || std::filesystem::create_directories(dir, ec)) {
             std::ifstream f(dir / (fileName + ".gdr"), std::ios::binary);
 
             if (!f.is_open()) {
