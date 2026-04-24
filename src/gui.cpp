@@ -28,6 +28,86 @@ static std::string sanitizeName(const char* raw) {
 }
 
 // ---------------------------------------------------------------------------
+// EclipseMenu-inspired theme
+// ---------------------------------------------------------------------------
+//
+// Dark base with a violet accent. Buttons and tabs share the same accent
+// family so the whole panel reads as one design system. Touch-friendly
+// padding/rounding everywhere so the menu is comfortable on a phone.
+void GUI::applyTheme() {
+    ImGuiStyle& s = ImGui::GetStyle();
+
+    s.WindowRounding   = 8.0f;
+    s.ChildRounding    = 6.0f;
+    s.FrameRounding    = 6.0f;
+    s.PopupRounding    = 6.0f;
+    s.GrabRounding     = 6.0f;
+    s.TabRounding      = 6.0f;
+    s.ScrollbarRounding= 8.0f;
+    s.ScrollbarSize    = 14.0f;
+    s.WindowBorderSize = 0.0f;
+    s.FrameBorderSize  = 0.0f;
+    s.WindowPadding    = ImVec2(12.f, 12.f);
+    s.FramePadding     = ImVec2(10.f, 7.f);
+    s.ItemSpacing      = ImVec2(8.f, 7.f);
+    s.ItemInnerSpacing = ImVec2(6.f, 6.f);
+    s.IndentSpacing    = 18.f;
+
+    ImVec4* c = s.Colors;
+    auto rgba = [](int r, int g, int b, float a){
+        return ImVec4(r / 255.f, g / 255.f, b / 255.f, a);
+    };
+
+    c[ImGuiCol_Text]                  = rgba(232, 232, 240, 1.0f);
+    c[ImGuiCol_TextDisabled]          = rgba(140, 140, 156, 1.0f);
+    c[ImGuiCol_WindowBg]              = rgba( 18,  18,  26, 0.96f);
+    c[ImGuiCol_ChildBg]               = rgba( 24,  24,  34, 1.00f);
+    c[ImGuiCol_PopupBg]               = rgba( 22,  22,  32, 0.98f);
+    c[ImGuiCol_Border]                = rgba( 60,  60,  90, 0.50f);
+
+    c[ImGuiCol_FrameBg]               = rgba( 30,  30,  44, 1.00f);
+    c[ImGuiCol_FrameBgHovered]        = rgba( 50,  45,  85, 1.00f);
+    c[ImGuiCol_FrameBgActive]         = rgba( 70,  60, 120, 1.00f);
+
+    c[ImGuiCol_TitleBg]               = rgba( 22,  22,  34, 1.00f);
+    c[ImGuiCol_TitleBgActive]         = rgba( 60,  45, 110, 1.00f);
+    c[ImGuiCol_TitleBgCollapsed]      = rgba( 18,  18,  28, 1.00f);
+
+    c[ImGuiCol_MenuBarBg]             = rgba( 22,  22,  32, 1.00f);
+
+    c[ImGuiCol_ScrollbarBg]           = rgba( 18,  18,  28, 0.60f);
+    c[ImGuiCol_ScrollbarGrab]         = rgba( 70,  60, 110, 1.00f);
+    c[ImGuiCol_ScrollbarGrabHovered]  = rgba( 95,  80, 150, 1.00f);
+    c[ImGuiCol_ScrollbarGrabActive]   = rgba(115, 100, 180, 1.00f);
+
+    c[ImGuiCol_CheckMark]             = rgba(180, 150, 255, 1.00f);
+    c[ImGuiCol_SliderGrab]            = rgba(140, 110, 230, 1.00f);
+    c[ImGuiCol_SliderGrabActive]      = rgba(170, 140, 255, 1.00f);
+
+    c[ImGuiCol_Button]                = rgba( 70,  55, 130, 1.00f);
+    c[ImGuiCol_ButtonHovered]         = rgba( 95,  75, 170, 1.00f);
+    c[ImGuiCol_ButtonActive]          = rgba(120, 100, 210, 1.00f);
+
+    c[ImGuiCol_Header]                = rgba( 55,  45, 100, 1.00f);
+    c[ImGuiCol_HeaderHovered]         = rgba( 80,  65, 145, 1.00f);
+    c[ImGuiCol_HeaderActive]          = rgba(105,  85, 185, 1.00f);
+
+    c[ImGuiCol_Separator]             = rgba( 60,  55,  95, 1.00f);
+    c[ImGuiCol_SeparatorHovered]      = rgba( 95,  80, 150, 1.00f);
+    c[ImGuiCol_SeparatorActive]       = rgba(120, 100, 195, 1.00f);
+
+    c[ImGuiCol_ResizeGrip]            = rgba( 70,  60, 120, 0.50f);
+    c[ImGuiCol_ResizeGripHovered]     = rgba( 95,  80, 150, 0.80f);
+    c[ImGuiCol_ResizeGripActive]      = rgba(120, 100, 200, 1.00f);
+
+    c[ImGuiCol_Tab]                   = rgba( 30,  28,  48, 1.00f);
+    c[ImGuiCol_TabHovered]            = rgba( 95,  80, 160, 1.00f);
+    c[ImGuiCol_TabActive]             = rgba( 70,  55, 130, 1.00f);
+    c[ImGuiCol_TabUnfocused]          = rgba( 25,  25,  40, 1.00f);
+    c[ImGuiCol_TabUnfocusedActive]    = rgba( 50,  45,  90, 1.00f);
+}
+
+// ---------------------------------------------------------------------------
 // Floating ball
 // ---------------------------------------------------------------------------
 //
@@ -91,14 +171,15 @@ void GUI::renderFloatingBall() {
         ballDragging = false;
     }
 
-    // Visual: gold when the menu is open, dark blue otherwise. Hover
-    // brightens the fill so the user gets feedback before they tap.
-    ImU32 fill = visible ? IM_COL32(255, 200, 60, 230) : IM_COL32(40, 50, 70, 220);
+    // Visual: violet when the menu is open, dark slate otherwise.
+    // EclipseMenu-style accent colour.
+    ImU32 fill = visible ? IM_COL32(140, 110, 230, 235)
+                         : IM_COL32(35,  35,  55,  220);
     if (hovered || active) {
-        fill = visible ? IM_COL32(255, 220, 100, 240)
-                       : IM_COL32(70, 90, 130, 240);
+        fill = visible ? IM_COL32(170, 140, 255, 245)
+                       : IM_COL32(70,  60, 110,  240);
     }
-    ImU32 ring = IM_COL32(255, 255, 255, 220);
+    ImU32 ring = IM_COL32(232, 232, 240, 220);
 
     auto* dl = ImGui::GetWindowDrawList();
     dl->AddCircleFilled(center, kBallRadius, fill, 32);
@@ -111,8 +192,8 @@ void GUI::renderFloatingBall() {
                 IM_COL32(255, 255, 255, 255), label);
 
     // Tiny coloured dot in the corner reflecting state: red while
-    // recording, green while playing, hidden when idle. Helps the
-    // player tell what mode they're in even with the panel closed.
+    // recording, green during playback — visible even with the panel
+    // closed.
     zBot* mgr = zBot::get();
     if (mgr->state == RECORD) {
         dl->AddCircleFilled(ImVec2(center.x + kBallRadius * 0.65f,
@@ -130,15 +211,19 @@ void GUI::renderFloatingBall() {
 }
 
 // ---------------------------------------------------------------------------
-// Replay info / state switcher
+// Replay info / state switcher (shared widgets)
 // ---------------------------------------------------------------------------
 void GUI::renderReplayInfo() {
     zBot* mgr = zBot::get();
     if (mgr->currentReplay) {
         ImGui::Text("Replay: %s", mgr->currentReplay->name.c_str());
-        ImGui::Text("Inputs: %zu  TPS: %.0f",
+        ImGui::Text("Inputs: %zu  TPS: %.0f  Duration: %.2fs",
                     mgr->currentReplay->inputs.size(),
-                    mgr->currentReplay->framerate);
+                    mgr->currentReplay->framerate,
+                    mgr->currentReplay->inputs.empty()
+                        ? 0.f
+                        : static_cast<float>(mgr->currentReplay->inputs.back().frame)
+                            / static_cast<float>(mgr->currentReplay->framerate));
     } else {
         ImGui::TextDisabled("No replay loaded");
     }
@@ -148,7 +233,7 @@ void GUI::renderStateSwitcher() {
     zBot* mgr = zBot::get();
     int currentState = (int)mgr->state;
 
-    if (ImGui::RadioButton("None", &currentState, NONE)) mgr->state = NONE;
+    if (ImGui::RadioButton("Idle", &currentState, NONE)) mgr->state = NONE;
     ImGui::SameLine();
     if (ImGui::RadioButton("Record", &currentState, RECORD)) {
         mgr->state = RECORD;
@@ -164,89 +249,34 @@ void GUI::renderStateSwitcher() {
 }
 
 // ---------------------------------------------------------------------------
-// Speedhack section
+// Home tab: state, replay info, big mode buttons
 // ---------------------------------------------------------------------------
-//
-// xdBot/zBot-style "clock" speedhack: scale the delta time fed into the
-// scheduler. Implementation lives in src/speedhack.cpp; this is the UI.
-//
-// Speed convention:
-//   0    -> nulo (passes through normal time, same as disabling)
-//   0.1  -> very slow, almost frame-by-frame
-//   0.25 -> slow practice
-//   1.0  -> normal
-//   >1   -> faster, no upper limit
-void GUI::renderSpeedhackSection() {
+void GUI::renderHomeTab() {
     zBot* mgr = zBot::get();
 
-    ImGui::Text("Speedhack (clock)");
+    ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "Status");
+    ImGui::Separator();
+    renderReplayInfo();
+    ImGui::Spacing();
+    renderStateSwitcher();
 
-    ImGui::Checkbox("Enabled##sh", &mgr->speedHackEnabled);
-    ImGui::SameLine();
-    ImGui::Checkbox("Audio pitch", &mgr->speedHackAudio);
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Pitch the music to match the game speed.\n"
-                          "Recommended; otherwise the song desyncs.");
-    }
+    ImGui::Spacing();
+    ImGui::TextDisabled(
+        mgr->state == RECORD   ? "Recording... your run is being captured." :
+        mgr->state == PLAYBACK ? "Playback armed. Restart the level to play." :
+                                 "Pick Record to capture, or Playback to replay.");
 
-    // Free-form numeric input. Negative values are clamped to 0 because
-    // a negative speed would run the scheduler backwards (don't do
-    // that). Increment / decrement steps make small tweaks easier on
-    // touch.
-    float speed = static_cast<float>(mgr->speed);
-    if (ImGui::InputFloat("Speed (x)", &speed, 0.05f, 0.25f, "%.3f")) {
-        if (speed < 0.f) speed = 0.f;
-        mgr->speed = static_cast<double>(speed);
-    }
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("0    = off\n"
-                          "0.1  = ~frame by frame\n"
-                          "0.25 = slow practice\n"
-                          "1.0  = normal\n"
-                          ">1   = faster (no limit)");
-    }
-
-    // One-tap presets. Tapping a preset also auto-enables the
-    // speedhack so the change is immediately audible / visible.
-    static const struct {
-        const char* label;
-        double value;
-    } kPresets[] = {
-        { "0",    0.0  }, // off
-        { "0.1",  0.1  }, // ~frame by frame
-        { "0.25", 0.25 },
-        { "0.5",  0.5  },
-        { "1x",   1.0  },
-        { "2x",   2.0  },
-        { "3x",   3.0  },
-        { "4x",   4.0  },
-    };
-
-    for (size_t i = 0; i < sizeof(kPresets) / sizeof(kPresets[0]); ++i) {
-        if (i > 0) ImGui::SameLine();
-        // Highlight the preset that matches the current speed so the
-        // user can see at a glance what's selected.
-        bool matches = std::fabs(mgr->speed - kPresets[i].value) < 1e-4;
-        if (matches) {
-            ImGui::PushStyleColor(ImGuiCol_Button,        IM_COL32(255, 200, 60, 220));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, IM_COL32(255, 215, 90, 240));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive,  IM_COL32(255, 230, 120, 255));
-            ImGui::PushStyleColor(ImGuiCol_Text,          IM_COL32(20, 20, 20, 255));
-        }
-        if (ImGui::SmallButton(kPresets[i].label)) {
-            mgr->speed = kPresets[i].value;
-            mgr->speedHackEnabled = (kPresets[i].value > 0.0);
-        }
-        if (matches) ImGui::PopStyleColor(4);
-    }
-
-    if (mgr->speed <= 0.0) {
-        ImGui::TextDisabled("(speed = 0 -> speedhack inactive)");
+    if (mgr->state == RECORD && mgr->currentReplay) {
+        ImGui::Spacing();
+        ImGui::TextColored(ImVec4(1.f, 0.55f, 0.55f, 1.f),
+            mgr->levelCompleted
+                ? "Level completed - macro is a perfect run."
+                : "In progress - finish the level for a perfect-run save.");
     }
 }
 
 // ---------------------------------------------------------------------------
-// Macro section: name field + saved list + IO buttons
+// Macro tab: file IO, saved list, recording quality settings
 // ---------------------------------------------------------------------------
 void GUI::refreshMacros() {
     macros = zReplay::listSaved();
@@ -256,12 +286,14 @@ void GUI::refreshMacros() {
     macrosDirty = false;
 }
 
-void GUI::renderMacroSection() {
+void GUI::renderMacroTab() {
     zBot* mgr = zBot::get();
 
     if (macrosDirty) refreshMacros();
 
-    ImGui::Text("Macro file (no dots, .gdr is added automatically)");
+    ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "Macro file");
+    ImGui::Separator();
+    ImGui::TextDisabled("No dots; the .gdr extension is added automatically.");
     ImGui::InputText("Name", mgr->loadName, IM_ARRAYSIZE(mgr->loadName),
         ImGuiInputTextFlags_CallbackCharFilter, blockDots);
 
@@ -300,170 +332,222 @@ void GUI::renderMacroSection() {
     }
 
     ImGui::Spacing();
+    ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "Recording quality");
     ImGui::Separator();
+    ImGui::Checkbox("Perfect run only", &mgr->perfectRunOnly);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Only auto-save when the level is completed.\n"
+                          "Quitting mid-attempt won't overwrite your\n"
+                          "previously saved masterpiece.");
+    }
+    ImGui::SameLine();
+    ImGui::Checkbox("Auto save", &mgr->autoSave);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Save the macro automatically on level\n"
+                          "complete (and exit, if 'Perfect run only'\n"
+                          "is off).");
+    }
+    ImGui::Checkbox("Dedupe inputs", &mgr->dedupeInputs);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Drop input events that don't change the\n"
+                          "held state of a button. Eliminates glitchy\n"
+                          "double-taps and bouncing taps.");
+    }
 
-    // Saved macros browser ---------------------------------------------------
-    if (ImGui::CollapsingHeader("Saved macros", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::Text("%zu macro%s on disk",
-                    macros.size(), macros.size() == 1 ? "" : "s");
-        ImGui::SameLine();
-        if (ImGui::SmallButton("Refresh")) {
-            macrosDirty = true;
-        }
+    ImGui::Spacing();
+    ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "Saved macros");
+    ImGui::Separator();
+    ImGui::Text("%zu macro%s on disk",
+                macros.size(), macros.size() == 1 ? "" : "s");
+    ImGui::SameLine();
+    if (ImGui::SmallButton("Refresh")) {
+        macrosDirty = true;
+    }
 
-        if (macros.empty()) {
-            ImGui::TextDisabled("Save a recording to see it here.");
-        } else {
-            // Scrollable list. Height in items so it scales reasonably
-            // on small mobile screens.
-            ImGui::PushItemWidth(-1);
-            if (ImGui::BeginListBox("##macrolist",
-                    ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 6.f))) {
-                for (int i = 0; i < static_cast<int>(macros.size()); ++i) {
-                    const std::string& n = macros[i];
-                    bool selected = (i == selectedMacro);
-                    if (ImGui::Selectable(n.c_str(), selected,
-                            ImGuiSelectableFlags_AllowDoubleClick)) {
-                        selectedMacro = i;
-                        // Mirror selection into the name buffer so the
-                        // existing Save/Load/Clear buttons keep working.
-                        std::strncpy(mgr->loadName, n.c_str(),
-                                     IM_ARRAYSIZE(mgr->loadName) - 1);
-                        mgr->loadName[IM_ARRAYSIZE(mgr->loadName) - 1] = '\0';
+    if (macros.empty()) {
+        ImGui::TextDisabled("Save a recording to see it here.");
+        return;
+    }
 
-                        if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-                            // Double-tap = load + jump straight to playback.
-                            zReplay* r = zReplay::fromFile(n);
-                            if (r) {
-                                if (mgr->currentReplay) delete mgr->currentReplay;
-                                mgr->currentReplay = r;
-                                mgr->state = PLAYBACK;
-                                Notification::create("Playing macro",
-                                    NotificationIcon::Success, 1.0f)->show();
-                            }
-                        }
-                    }
-                }
-                ImGui::EndListBox();
-            }
-            ImGui::PopItemWidth();
+    ImGui::PushItemWidth(-1);
+    if (ImGui::BeginListBox("##macrolist",
+            ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 7.f))) {
+        for (int i = 0; i < static_cast<int>(macros.size()); ++i) {
+            const std::string& n = macros[i];
+            bool selected = (i == selectedMacro);
+            if (ImGui::Selectable(n.c_str(), selected,
+                    ImGuiSelectableFlags_AllowDoubleClick)) {
+                selectedMacro = i;
+                std::strncpy(mgr->loadName, n.c_str(),
+                             IM_ARRAYSIZE(mgr->loadName) - 1);
+                mgr->loadName[IM_ARRAYSIZE(mgr->loadName) - 1] = '\0';
 
-            // Action row for the selected macro. All buttons gated on a
-            // valid selection so they can't run on garbage indices.
-            bool hasSel = (selectedMacro >= 0 &&
-                           selectedMacro < static_cast<int>(macros.size()));
-
-            if (!hasSel) ImGui::BeginDisabled();
-
-            if (ImGui::Button("Load##sel")) {
-                const std::string& n = macros[selectedMacro];
-                zReplay* r = zReplay::fromFile(n);
-                if (r) {
-                    if (mgr->currentReplay) delete mgr->currentReplay;
-                    mgr->currentReplay = r;
-                    Notification::create("Macro loaded",
-                        NotificationIcon::Success, 1.0f)->show();
-                } else {
-                    Notification::create("Failed to load",
-                        NotificationIcon::Error, 1.5f)->show();
-                }
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Play##sel")) {
-                const std::string& n = macros[selectedMacro];
-                zReplay* r = zReplay::fromFile(n);
-                if (r) {
-                    if (mgr->currentReplay) delete mgr->currentReplay;
-                    mgr->currentReplay = r;
-                    mgr->state = PLAYBACK;
-                    Notification::create("Playback armed",
-                        NotificationIcon::Success, 1.0f)->show();
-                } else {
-                    Notification::create("Failed to load",
-                        NotificationIcon::Error, 1.5f)->show();
-                }
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Delete##sel")) {
-                ImGui::OpenPopup("Delete macro?");
-            }
-
-            if (!hasSel) ImGui::EndDisabled();
-
-            // Modal so a stray tap on a touchscreen doesn't nuke a macro.
-            if (ImGui::BeginPopupModal("Delete macro?", nullptr,
-                    ImGuiWindowFlags_AlwaysAutoResize)) {
-                if (hasSel) {
-                    ImGui::Text("Permanently delete \"%s\"?",
-                                macros[selectedMacro].c_str());
-                } else {
-                    ImGui::TextDisabled("No macro selected.");
-                }
-                ImGui::Separator();
-                if (ImGui::Button("Delete", ImVec2(120, 0)) && hasSel) {
-                    const std::string n = macros[selectedMacro];
-                    if (zReplay::deleteByName(n)) {
-                        // If the deleted macro is the one currently loaded,
-                        // drop it from memory too so we don't keep a stale
-                        // reference around.
-                        if (mgr->currentReplay && mgr->currentReplay->name == n) {
-                            delete mgr->currentReplay;
-                            mgr->currentReplay = nullptr;
-                            mgr->state = NONE;
-                        }
-                        macrosDirty = true;
-                        selectedMacro = -1;
-                        Notification::create("Macro deleted",
+                if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                    zReplay* r = zReplay::fromFile(n);
+                    if (r) {
+                        if (mgr->currentReplay) delete mgr->currentReplay;
+                        mgr->currentReplay = r;
+                        mgr->state = PLAYBACK;
+                        Notification::create("Playing macro",
                             NotificationIcon::Success, 1.0f)->show();
-                    } else {
-                        Notification::create("Delete failed",
-                            NotificationIcon::Error, 1.5f)->show();
                     }
-                    ImGui::CloseCurrentPopup();
                 }
-                ImGui::SameLine();
-                if (ImGui::Button("Cancel", ImVec2(120, 0))) {
-                    ImGui::CloseCurrentPopup();
-                }
-                ImGui::EndPopup();
             }
         }
+        ImGui::EndListBox();
+    }
+    ImGui::PopItemWidth();
+
+    bool hasSel = (selectedMacro >= 0 &&
+                   selectedMacro < static_cast<int>(macros.size()));
+
+    if (!hasSel) ImGui::BeginDisabled();
+
+    if (ImGui::Button("Load##sel")) {
+        const std::string& n = macros[selectedMacro];
+        zReplay* r = zReplay::fromFile(n);
+        if (r) {
+            if (mgr->currentReplay) delete mgr->currentReplay;
+            mgr->currentReplay = r;
+            Notification::create("Macro loaded",
+                NotificationIcon::Success, 1.0f)->show();
+        } else {
+            Notification::create("Failed to load",
+                NotificationIcon::Error, 1.5f)->show();
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Play##sel")) {
+        const std::string& n = macros[selectedMacro];
+        zReplay* r = zReplay::fromFile(n);
+        if (r) {
+            if (mgr->currentReplay) delete mgr->currentReplay;
+            mgr->currentReplay = r;
+            mgr->state = PLAYBACK;
+            Notification::create("Playback armed",
+                NotificationIcon::Success, 1.0f)->show();
+        } else {
+            Notification::create("Failed to load",
+                NotificationIcon::Error, 1.5f)->show();
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Delete##sel")) {
+        ImGui::OpenPopup("Delete macro?");
+    }
+
+    if (!hasSel) ImGui::EndDisabled();
+
+    if (ImGui::BeginPopupModal("Delete macro?", nullptr,
+            ImGuiWindowFlags_AlwaysAutoResize)) {
+        if (hasSel) {
+            ImGui::Text("Permanently delete \"%s\"?",
+                        macros[selectedMacro].c_str());
+        } else {
+            ImGui::TextDisabled("No macro selected.");
+        }
+        ImGui::Separator();
+        if (ImGui::Button("Delete", ImVec2(120, 0)) && hasSel) {
+            const std::string n = macros[selectedMacro];
+            if (zReplay::deleteByName(n)) {
+                if (mgr->currentReplay && mgr->currentReplay->name == n) {
+                    delete mgr->currentReplay;
+                    mgr->currentReplay = nullptr;
+                    mgr->state = NONE;
+                }
+                macrosDirty = true;
+                selectedMacro = -1;
+                Notification::create("Macro deleted",
+                    NotificationIcon::Success, 1.0f)->show();
+            } else {
+                Notification::create("Delete failed",
+                    NotificationIcon::Error, 1.5f)->show();
+            }
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
     }
 }
 
 // ---------------------------------------------------------------------------
-// Main panel
+// Speed tab: clock-style speedhack with presets
 // ---------------------------------------------------------------------------
-void GUI::renderMainPanel() {
-    ImGui::SetNextWindowSize(ImVec2(420, 540), ImGuiCond_Once);
-    ImGui::SetNextWindowSizeConstraints(ImVec2(320, 380), ImVec2(800, 1200));
-
-    // Built-in close (X) is rendered by ImGui when we pass &visible.
-    if (!ImGui::Begin("ZBOT-MOBILE", &visible)) {
-        ImGui::End();
-        return;
-    }
-
-    ImGui::TextColored(ImVec4(1.f, 0.78f, 0.17f, 1.f), "ZBOT-MOBILE v1.1.0");
-
-    // Big, finger-friendly close button on the same row as the title.
-    // Useful on phones where the tiny native X is hard to hit.
-    ImGui::SameLine(ImGui::GetWindowWidth() - 50.f);
-    if (ImGui::Button("X", ImVec2(36.f, 24.f))) {
-        visible = false;
-    }
-
-    ImGui::Separator();
-
-    renderReplayInfo();
-    renderStateSwitcher();
-
-    ImGui::Separator();
-    renderSpeedhackSection();
-
-    ImGui::Separator();
-
+void GUI::renderSpeedTab() {
     zBot* mgr = zBot::get();
+
+    ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "Speedhack (clock)");
+    ImGui::Separator();
+    ImGui::TextDisabled("Scales the cocos scheduler delta time.\n"
+                        "Same approach as xdBot's clock speedhack.");
+
+    ImGui::Checkbox("Enabled##sh", &mgr->speedHackEnabled);
+    ImGui::SameLine();
+    ImGui::Checkbox("Audio pitch", &mgr->speedHackAudio);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Pitch the music to match the game speed.\n"
+                          "Recommended; otherwise the song desyncs.");
+    }
+
+    float speed = static_cast<float>(mgr->speed);
+    if (ImGui::InputFloat("Speed (x)", &speed, 0.05f, 0.25f, "%.3f")) {
+        if (speed < 0.f) speed = 0.f;
+        mgr->speed = static_cast<double>(speed);
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("0    = off\n"
+                          "0.1  = ~frame by frame\n"
+                          "0.25 = slow practice\n"
+                          "1.0  = normal\n"
+                          ">1   = faster (no limit)");
+    }
+
+    static const struct {
+        const char* label;
+        double value;
+    } kPresets[] = {
+        { "0",    0.0  }, // off
+        { "0.1",  0.1  }, // ~frame by frame
+        { "0.25", 0.25 },
+        { "0.5",  0.5  },
+        { "1x",   1.0  },
+        { "2x",   2.0  },
+        { "3x",   3.0  },
+        { "4x",   4.0  },
+    };
+
+    for (size_t i = 0; i < sizeof(kPresets) / sizeof(kPresets[0]); ++i) {
+        if (i > 0) ImGui::SameLine();
+        bool matches = std::fabs(mgr->speed - kPresets[i].value) < 1e-4;
+        if (matches) {
+            ImGui::PushStyleColor(ImGuiCol_Button,        IM_COL32(170, 140, 255, 230));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, IM_COL32(190, 160, 255, 245));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive,  IM_COL32(210, 180, 255, 255));
+            ImGui::PushStyleColor(ImGuiCol_Text,          IM_COL32(20, 20, 30, 255));
+        }
+        if (ImGui::SmallButton(kPresets[i].label)) {
+            mgr->speed = kPresets[i].value;
+            mgr->speedHackEnabled = (kPresets[i].value > 0.0);
+        }
+        if (matches) ImGui::PopStyleColor(4);
+    }
+
+    if (mgr->speed <= 0.0) {
+        ImGui::TextDisabled("(speed = 0 -> speedhack inactive)");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Settings tab: safety, audio, misc
+// ---------------------------------------------------------------------------
+void GUI::renderSettingsTab() {
+    zBot* mgr = zBot::get();
+
+    ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "Safety");
+    ImGui::Separator();
     ImGui::Checkbox("Auto-Safe Mode", &mgr->autoSafeMode);
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Forces practice mode on level start so any new\n"
@@ -472,14 +556,90 @@ void GUI::renderMainPanel() {
                           "events while a macro is recording or playing.\n"
                           "The level itself stays visually unmodified.");
     }
-    ImGui::SameLine();
+
+    ImGui::Spacing();
+    ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "Playback");
+    ImGui::Separator();
     ImGui::Checkbox("Clickbot SFX", &mgr->clickbotEnabled);
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Play a click sound for every input during playback.");
     }
 
+    ImGui::Spacing();
+    ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "About");
     ImGui::Separator();
-    renderMacroSection();
+    ImGui::TextWrapped(
+        "ZBOT-MOBILE v1.2.0 - macro / clock speedhack mod for Geometry Dash.\n"
+        "Inspired by FigmentBoy/zBot, Zilko/xdBot, and EclipseMenu.");
+    ImGui::TextDisabled("Tip: drag the floating Z ball to move it; tap to toggle.");
+}
+
+// ---------------------------------------------------------------------------
+// Main panel
+// ---------------------------------------------------------------------------
+void GUI::renderMainPanel() {
+    ImGui::SetNextWindowSize(ImVec2(440, 580), ImGuiCond_Once);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(340, 380), ImVec2(900, 1400));
+
+    // Built-in close (X) is rendered by ImGui when we pass &visible.
+    if (!ImGui::Begin("ZBOT-MOBILE", &visible)) {
+        ImGui::End();
+        return;
+    }
+
+    // Header row: title + finger-friendly X close button.
+    ImGui::TextColored(ImVec4(0.85f, 0.78f, 1.0f, 1.f), "ZBOT-MOBILE v1.2.0");
+    ImGui::SameLine(ImGui::GetWindowWidth() - 56.f);
+    if (ImGui::Button("X", ImVec2(36.f, 26.f))) {
+        visible = false;
+    }
+    ImGui::Separator();
+
+    // Tab bar (EclipseMenu-inspired layout).
+    if (ImGui::BeginTabBar("##zbtabs", ImGuiTabBarFlags_None)) {
+        if (ImGui::BeginTabItem("Home")) {
+            renderHomeTab();
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Macro")) {
+            renderMacroTab();
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Speed")) {
+            renderSpeedTab();
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Settings")) {
+            renderSettingsTab();
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+    }
+
+    // Status bar at the bottom: live recording info + global state.
+    ImGui::Separator();
+    zBot* mgr = zBot::get();
+    const char* stateLabel =
+        mgr->state == RECORD   ? "RECORDING" :
+        mgr->state == PLAYBACK ? "PLAYBACK"  :
+                                 "IDLE";
+    ImVec4 stateColor =
+        mgr->state == RECORD   ? ImVec4(1.f, 0.4f, 0.4f, 1.f) :
+        mgr->state == PLAYBACK ? ImVec4(0.4f, 1.f, 0.5f, 1.f) :
+                                 ImVec4(0.6f, 0.6f, 0.7f, 1.f);
+    ImGui::TextColored(stateColor, "%s", stateLabel);
+    ImGui::SameLine();
+    ImGui::TextDisabled(" | ");
+    ImGui::SameLine();
+    if (mgr->currentReplay) {
+        ImGui::Text("%zu inputs", mgr->currentReplay->inputs.size());
+    } else {
+        ImGui::TextDisabled("no replay");
+    }
+    ImGui::SameLine();
+    ImGui::TextDisabled(" | ");
+    ImGui::SameLine();
+    ImGui::Text("%.2fx", mgr->speed);
 
     ImGui::End();
 }
@@ -493,13 +653,7 @@ void GUI::renderer() {
 }
 
 void GUI::setup() {
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.WindowRounding = 6.0f;
-    style.FrameRounding  = 4.0f;
-    style.GrabRounding   = 4.0f;
-    style.ScrollbarSize  = 14.0f; // bigger thumb for touch
-    style.ItemSpacing    = ImVec2(8.f, 6.f);
-    style.FramePadding   = ImVec2(8.f, 6.f);
+    applyTheme();
 }
 
 class $modify(zLoadingLayer, LoadingLayer) {

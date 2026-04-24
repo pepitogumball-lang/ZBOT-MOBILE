@@ -8,6 +8,17 @@
 
 using namespace geode::prelude;
 
+// Drop inputs that don't change the held state of (player, button).
+// Returns true if the caller should keep the input.
+static bool shouldRecord(zBot* mgr, bool down, int button, bool p2) {
+    if (!mgr->dedupeInputs) return true;
+    if (button < 1 || button > 7) return true; // exotic, just record it
+    bool& held = p2 ? mgr->p2ButtonHeld[button] : mgr->p1ButtonHeld[button];
+    if (held == down) return false;
+    held = down;
+    return true;
+}
+
 class $modify(zRecGJBGL, GJBaseGameLayer) {
     void handleButton(bool down, int button, bool p1) {
         GJBaseGameLayer::handleButton(down, button, p1);
@@ -15,6 +26,7 @@ class $modify(zRecGJBGL, GJBaseGameLayer) {
         zBot* mgr = zBot::get();
         if (mgr->state == RECORD && mgr->currentReplay) {
             bool p2 = !p1 && m_levelSettings->m_twoPlayerMode && m_gameState.m_isDualMode;
+            if (!shouldRecord(mgr, down, button, p2)) return;
             mgr->currentReplay->addInput(
                 static_cast<int>(m_gameState.m_currentProgress) - 1,
                 button, p2, down
@@ -55,8 +67,19 @@ class $modify(zRecPL, PlayLayer) {
             // that point gives us xdBot/zBot-style checkpoint recording:
             // play -> checkpoint -> die -> respawn -> overwrite the bad
             // attempt and keep recording over it.
+            //
+            // This is the core of how a "perfect macro" gets built: every
+            // failed attempt is replaced by the next one, so the final
+            // saved file only contains the successful run.
             int frame = static_cast<int>(m_gameState.m_currentProgress);
             mgr->currentReplay->purgeAfter(frame);
+            mgr->resetButtonStateAfterFrame(frame);
+
+            // Synthesize a clean "all buttons released" event at the
+            // respawn frame so the next attempt always starts from a
+            // known-good neutral state. Without this, a button still
+            // held from before the death would inherit into the new
+            // attempt and ruin the recording.
             mgr->currentReplay->addInput(frame, static_cast<int>(PlayerButton::Jump), false, false);
             if (m_player1) m_player1->m_isDashing = false;
 
@@ -81,7 +104,12 @@ class $modify(zRecPL, PlayLayer) {
     void levelComplete() {
         zBot* mgr = zBot::get();
         if (mgr->state == RECORD && mgr->currentReplay) {
-            mgr->currentReplay->save();
+            mgr->levelCompleted = true;
+            if (mgr->autoSave) {
+                mgr->currentReplay->save();
+                Notification::create("Perfect macro saved",
+                    NotificationIcon::Success, 1.5f)->show();
+            }
         }
 
         // Auto-Safe Mode at the finish line: swallow the real
@@ -99,8 +127,17 @@ class $modify(zRecPL, PlayLayer) {
 
     void onExit() {
         zBot* mgr = zBot::get();
-        if (mgr->state == RECORD && mgr->currentReplay) {
-            mgr->currentReplay->save();
+        if (mgr->state == RECORD && mgr->currentReplay && mgr->autoSave) {
+            // Perfect-run gate: only auto-save if the player legitimately
+            // finished the level. Quitting mid-attempt leaves the saved
+            // macro on disk untouched so a half-baked retry session
+            // can't clobber a previously saved masterpiece.
+            //
+            // Users can still hit "Save" manually from the GUI to write
+            // an in-progress recording — that path bypasses this gate.
+            if (!mgr->perfectRunOnly || mgr->levelCompleted) {
+                mgr->currentReplay->save();
+            }
         }
         PlayLayer::onExit();
     }

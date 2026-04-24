@@ -38,15 +38,21 @@ public:
     // Floating, draggable circular icon that opens / closes the panel.
     void renderFloatingBall();
 
-    // Main panel sections.
+    // Main panel + tabs (EclipseMenu-inspired layout).
     void renderMainPanel();
+    void renderHomeTab();
+    void renderMacroTab();
+    void renderSpeedTab();
+    void renderSettingsTab();
+
     void renderReplayInfo();
     void renderStateSwitcher();
-    void renderSpeedhackSection();
-    void renderMacroSection();
 
     // Filesystem helpers for the macro list.
     void refreshMacros();
+
+    // EclipseMenu-style theme.
+    void applyTheme();
 
     static GUI* get() {
         static GUI* instance = new GUI();

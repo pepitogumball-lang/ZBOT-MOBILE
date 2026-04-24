@@ -39,8 +39,53 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
 #endif
     }
 
+    // Sort by frame and drop "no-op" toggles so the on-disk macro is a
+    // clean, monotonic input stream. Two passes:
+    //   1) stable sort by frame (preserves intra-frame input order)
+    //   2) per-(player, button) walk that drops any input matching the
+    //      previous tracked state for that key.
+    // After this runs, the macro looks like a deliberate, hand-crafted
+    // input list — no orphaned releases, no double presses, no bouncing.
+    void cleanInputs() {
+        if (inputs.empty()) return;
+
+        std::stable_sort(inputs.begin(), inputs.end(),
+            [](const zInput& a, const zInput& b) {
+                return a.frame < b.frame;
+            });
+
+        // 8 buttons * 2 players covers every PlayerButton value plus a
+        // small headroom; -1 means "unknown / never seen".
+        int held[2][8];
+        for (int p = 0; p < 2; ++p)
+            for (int b = 0; b < 8; ++b)
+                held[p][b] = -1;
+
+        std::vector<zInput> cleaned;
+        cleaned.reserve(inputs.size());
+
+        for (auto const& in : inputs) {
+            int p = in.player2 ? 1 : 0;
+            int b = in.button;
+            if (b < 0 || b >= 8) {
+                cleaned.push_back(in);
+                continue;
+            }
+            int prev = held[p][b];
+            int now = in.down ? 1 : 0;
+            if (prev == now) continue; // no-op
+            held[p][b] = now;
+            cleaned.push_back(in);
+        }
+
+        inputs = std::move(cleaned);
+    }
+
     void save() {
         author = GJAccountManager::get()->m_username;
+        // Run the clean pass before serialising so saved macros are
+        // always tidy regardless of how messy the recording was.
+        cleanInputs();
         duration = inputs.size() > 0
             ? static_cast<float>(inputs.back().frame) / static_cast<float>(framerate)
             : 0.f;

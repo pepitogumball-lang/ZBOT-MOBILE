@@ -75,3 +75,23 @@ on every push to `main`. Drop the produced `.geode` file into:
     `zReplay::deleteByName()` so the GUI can enumerate / remove `.gdr`
     macros on disk.
   - `mod.json`: bumped version to `v1.1.0`.
+- 2026-04-24: v1.2.0 perfect-macro pass + EclipseMenu-style theme.
+  - `src/zBot.hpp`: added `perfectRunOnly`, `autoSave`, `dedupeInputs`,
+    `levelCompleted` flags and per-button held-state tracking
+    (`p1ButtonHeld`, `p2ButtonHeld`) plus `resetButtonStateAfterFrame()`
+    so dedupe stays consistent after a checkpoint rewind.
+  - `src/replay.hpp`: added `zReplay::cleanInputs()` (stable-sort by
+    frame, then drop no-op state toggles per (player, button)). `save()`
+    now calls it so on-disk macros are always tidy.
+  - `src/recordmanager.cpp`: record-time dedupe via `shouldRecord()`;
+    cleaner respawn synth events; `levelComplete()` flips
+    `levelCompleted` and auto-saves with a "Perfect macro saved"
+    notification; `onExit()` honours the perfect-run gate so
+    incomplete attempts no longer overwrite saved masterpieces.
+  - `src/gui.hpp` / `src/gui.cpp`: rewrote the panel as a tabbed layout
+    (Home / Macro / Speed / Settings), added an EclipseMenu-inspired
+    dark+violet theme via `applyTheme()`, added a live status bar
+    (state, input count, current speed), and added the new "Perfect
+    run only", "Auto save" and "Dedupe inputs" toggles in the Macro
+    tab.
+  - `mod.json`: bumped version to `v1.2.0`.
