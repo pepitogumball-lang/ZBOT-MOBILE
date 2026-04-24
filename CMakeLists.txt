@@ -4,7 +4,10 @@ project(ZBOT_MOBILE LANGUAGES CXX)
 
 include(FetchContent)
 
-# Geode should be found via find_package, not FetchContent
+# Geode should be found via find_package
+if(DEFINED ENV{GEODE_SDK})
+    list(APPEND CMAKE_PREFIX_PATH "$ENV{GEODE_SDK}")
+endif()
 find_package(Geode REQUIRED)
 
 # Setup the mod
@@ -27,7 +30,7 @@ CPMAddPackage("gh:maxnut/GDReplayFormat#9c32b5529067901418ea6e4dfbd36437dc8712bc
 CPMAddPackage("gh:matcool/gd-imgui-cocos#8973953519fa05d81c61634e585559ab87ca559d")
 
 add_geode_mod(
-    pepitogumball.zbot_mobile
+    ZBOT_MOBILE
     RESOURCES resources
     SOURCES
         src/main.cpp
@@ -35,4 +38,4 @@ add_geode_mod(
         src/gui.cpp
 )
 
-target_link_libraries(pepitogumball.zbot_mobile PUBLIC libGDR imgui-cocos)
+target_link_libraries(ZBOT_MOBILE PUBLIC libGDR imgui-cocos)
