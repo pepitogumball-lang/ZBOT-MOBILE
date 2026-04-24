@@ -114,3 +114,46 @@ on every push to `main`. Drop the produced `.geode` file into:
     setup via `Mod::get()->getSavedValue<double>`). Header bumped to
     v1.3.0.
   - `mod.json`, `web/index.html`: bumped to v1.3.0 + updated copy.
+- 2026-04-24: v1.4.0 spam-safe checkpoints, built-in spammer, menu visibility.
+  - `src/zBot.hpp`: added `ZBOT_VERSION` constant, spam-safety spacing
+    (`minHoldFrames`, `minGapFrames`), built-in spammer config
+    (`spamEnabled`, `spamButton`, `spamCPS`, `spamHoldRatio`,
+    `spamPlayer`, `spamOnlyDuringPlay`, `spamRecordToMacro`,
+    `spamSuppressRecord`), and visibility toggles (`hideWhilePlaying`,
+    `hideAfterFinish`, `onlyShowInMenu`, `hudHiddenAfterFinish`). All
+    new fields are persisted via `saveSettings()` / `loadSettings()`.
+  - `src/replay.hpp`: `cleanInputs()` and `save()` now take optional
+    `minHoldFrames` / `minGapFrames` and run a third spacing pass that
+    pushes events forward in time so a press is held for at least
+    `minHold` frames and consecutive presses of the same button sit
+    at least `minGap` frames apart. Stops GD from eating same-frame
+    press+release tuples produced by extreme spam taps.
+  - `src/recordmanager.cpp`: checkpoint reset now synthesises a
+    release event for **every** still-held button per player (not just
+    Jump), so a button held across a death no longer poisons the
+    dedupe state on the next attempt. The handleButton hook honours
+    the spam-suppress flag so spammer events stay out of macros by
+    default. `levelComplete` flips `hudHiddenAfterFinish`; `init`
+    clears it so re-entering a level brings the menu back.
+  - `src/playbackmanager.cpp`: moved playback cursors (`currIndex`,
+    `clickBotIndex`) onto Geode `$modify` Fields, with
+    auto-resync when the replay pointer changes or the in-game frame
+    goes backwards (death without `resetLevel` firing first). Added
+    the built-in spammer in the same `processCommands` hook: it
+    drives the chosen `PlayerButton` on a configurable press/release
+    cycle anchored to the frame it was armed on, releases the button
+    cleanly when disabled or paused, and bypasses recording unless
+    the user explicitly opts in.
+  - `src/gui.hpp` / `src/gui.cpp`: new "Spam" tab with button/player
+    pickers, CPS slider + presets (1/5/10/15/20/30), hold-ratio
+    slider, and "Only while playing" / "Record spam into macro"
+    toggles. New "Menu visibility" group in Settings with "Hide while
+    playing", "Hide after finishing a level" and "Only show in main
+    menu". `GUI::shouldRenderHud()` checks `PlayLayer::get()` and
+    `CCDirector::isPaused()` to gate the renderer on those flags.
+    Added a violet dot on the floating ball when the spammer is armed.
+    Added `MenuLayer::init` hook that clears `hudHiddenAfterFinish`
+    on return to the main menu. Macro tab now exposes the
+    `minHoldFrames` / `minGapFrames` spacing inputs. Header bumped to
+    v1.4.0 (sourced from `ZBOT_VERSION`).
+  - `mod.json`: bumped version to `v1.4.0`.

@@ -13,6 +13,7 @@
 #include <chrono>
 #include <ctime>
 #include <cstdint>
+#include <climits>
 
 using namespace geode::prelude;
 
@@ -43,13 +44,20 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
     }
 
     // Sort by frame and drop "no-op" toggles so the on-disk macro is a
-    // clean, monotonic input stream. Two passes:
+    // clean, monotonic input stream. Three passes:
     //   1) stable sort by frame (preserves intra-frame input order)
     //   2) per-(player, button) walk that drops any input matching the
     //      previous tracked state for that key.
+    //   3) optional spam-safety pass that pushes events forward in time
+    //      so a press is held for at least `minHoldFrames` and so
+    //      consecutive press events of the same button are at least
+    //      `minGapFrames` apart. This is what stops GD from eating
+    //      same-frame press+release tuples produced by extreme spam
+    //      taps. Pass 0/0 to skip the pass entirely.
     // After this runs, the macro looks like a deliberate, hand-crafted
-    // input list — no orphaned releases, no double presses, no bouncing.
-    void cleanInputs() {
+    // input list — no orphaned releases, no double presses, no bouncing,
+    // no sub-frame ghosts.
+    void cleanInputs(int minHoldFrames = 0, int minGapFrames = 0) {
         if (inputs.empty()) return;
 
         std::stable_sort(inputs.begin(), inputs.end(),
@@ -81,14 +89,51 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
             cleaned.push_back(in);
         }
 
+        // Spam-safety spacing pass. Track, per (player, button), the
+        // frame of the last press and last release, and shove events
+        // forward in time when they violate the minimum-spacing
+        // contract. Frame numbers only ever increase, never decrease,
+        // so we keep the input stream monotonic afterwards.
+        if (minHoldFrames > 0 || minGapFrames > 0) {
+            int lastPress  [2][8];
+            int lastRelease[2][8];
+            for (int p = 0; p < 2; ++p)
+                for (int b = 0; b < 8; ++b) {
+                    lastPress[p][b]   = INT_MIN / 2;
+                    lastRelease[p][b] = INT_MIN / 2;
+                }
+
+            for (auto& in : cleaned) {
+                int p = in.player2 ? 1 : 0;
+                int b = in.button;
+                if (b < 0 || b >= 8) continue;
+
+                if (in.down) {
+                    int minF = lastRelease[p][b] + minGapFrames;
+                    if (in.frame < minF) in.frame = minF;
+                    lastPress[p][b] = in.frame;
+                } else {
+                    int minF = lastPress[p][b] + minHoldFrames;
+                    if (in.frame < minF) in.frame = minF;
+                    lastRelease[p][b] = in.frame;
+                }
+            }
+
+            // Spacing pushes can re-order events globally, so re-sort.
+            std::stable_sort(cleaned.begin(), cleaned.end(),
+                [](const zInput& a, const zInput& b) {
+                    return a.frame < b.frame;
+                });
+        }
+
         inputs = std::move(cleaned);
     }
 
-    void save() {
+    void save(int minHoldFrames = 0, int minGapFrames = 0) {
         author = GJAccountManager::get()->m_username;
         // Run the clean pass before serialising so saved macros are
         // always tidy regardless of how messy the recording was.
-        cleanInputs();
+        cleanInputs(minHoldFrames, minGapFrames);
         duration = inputs.size() > 0
             ? static_cast<float>(inputs.back().frame) / static_cast<float>(framerate)
             : 0.f;

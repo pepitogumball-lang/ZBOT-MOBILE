@@ -43,6 +43,7 @@ public:
     void renderHomeTab();
     void renderMacroTab();
     void renderSpeedTab();
+    void renderSpamTab();
     void renderSettingsTab();
 
     void renderReplayInfo();
@@ -53,6 +54,10 @@ public:
 
     // EclipseMenu-style theme.
     void applyTheme();
+
+    // Decides whether the ball + panel should render this frame based
+    // on the user's visibility settings and the current scene.
+    bool shouldRenderHud();
 
     static GUI* get() {
         static GUI* instance = new GUI();

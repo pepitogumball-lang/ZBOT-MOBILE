@@ -24,14 +24,21 @@ class $modify(zRecGJBGL, GJBaseGameLayer) {
         GJBaseGameLayer::handleButton(down, button, p1);
 
         zBot* mgr = zBot::get();
-        if (mgr->state == RECORD && mgr->currentReplay) {
-            bool p2 = !p1 && m_levelSettings->m_twoPlayerMode && m_gameState.m_isDualMode;
-            if (!shouldRecord(mgr, down, button, p2)) return;
-            mgr->currentReplay->addInput(
-                static_cast<int>(m_gameState.m_currentProgress) - 1,
-                button, p2, down
-            );
-        }
+        if (mgr->state != RECORD || !mgr->currentReplay) return;
+
+        // Skip recording inputs that the built-in spammer just emitted,
+        // unless the user explicitly wants spam events captured into
+        // the macro. Default behaviour (spamRecordToMacro = false) keeps
+        // saved macros free of clickbot pollution so they remain
+        // useful as standalone replays.
+        if (mgr->spamSuppressRecord && !mgr->spamRecordToMacro) return;
+
+        bool p2 = !p1 && m_levelSettings->m_twoPlayerMode && m_gameState.m_isDualMode;
+        if (!shouldRecord(mgr, down, button, p2)) return;
+        mgr->currentReplay->addInput(
+            static_cast<int>(m_gameState.m_currentProgress) - 1,
+            button, p2, down
+        );
     }
 };
 
@@ -42,6 +49,10 @@ class $modify(zRecPL, PlayLayer) {
         if (mgr->state == RECORD) {
             mgr->createNewReplay(lvl);
         }
+
+        // Re-entering a level clears the "level just finished" HUD-hide
+        // flag so the menu becomes available again on retry.
+        mgr->hudHiddenAfterFinish = false;
 
         if (!PlayLayer::init(lvl, useReplay, dontCreateObjects)) return false;
 
@@ -60,34 +71,49 @@ class $modify(zRecPL, PlayLayer) {
         PlayLayer::resetLevel();
 
         zBot* mgr = zBot::get();
-        if (mgr->state == RECORD && mgr->currentReplay) {
-            // After resetLevel(), m_currentProgress reflects either the
-            // start of the level (full restart) or the last activated
-            // checkpoint frame (death + respawn). Wiping inputs after
-            // that point gives us xdBot/zBot-style checkpoint recording:
-            // play -> checkpoint -> die -> respawn -> overwrite the bad
-            // attempt and keep recording over it.
-            //
-            // This is the core of how a "perfect macro" gets built: every
-            // failed attempt is replaced by the next one, so the final
-            // saved file only contains the successful run.
-            int frame = static_cast<int>(m_gameState.m_currentProgress);
-            mgr->currentReplay->purgeAfter(frame);
-            mgr->resetButtonStateAfterFrame(frame);
+        if (mgr->state != RECORD || !mgr->currentReplay) return;
 
-            // Synthesize a clean "all buttons released" event at the
-            // respawn frame so the next attempt always starts from a
-            // known-good neutral state. Without this, a button still
-            // held from before the death would inherit into the new
-            // attempt and ruin the recording.
-            mgr->currentReplay->addInput(frame, static_cast<int>(PlayerButton::Jump), false, false);
-            if (m_player1) m_player1->m_isDashing = false;
+        // After resetLevel(), m_currentProgress reflects either the
+        // start of the level (full restart) or the last activated
+        // checkpoint frame (death + respawn). Wiping inputs after
+        // that point gives us xdBot/zBot-style checkpoint recording:
+        // play -> checkpoint -> die -> respawn -> overwrite the bad
+        // attempt and keep recording over it.
+        //
+        // This is the core of how a "perfect macro" gets built: every
+        // failed attempt is replaced by the next one, so the final
+        // saved file only contains the successful run.
+        int frame = static_cast<int>(m_gameState.m_currentProgress);
+        mgr->currentReplay->purgeAfter(frame);
 
-            if (m_gameState.m_isDualMode && m_levelSettings->m_twoPlayerMode) {
-                mgr->currentReplay->addInput(frame, static_cast<int>(PlayerButton::Jump), true, false);
-                if (m_player2) m_player2->m_isDashing = false;
+        // Re-derive what's actually held at the respawn point from the
+        // surviving inputs so dedupe sees the truth.
+        mgr->resetButtonStateAfterFrame(frame);
+
+        // The player object is reset to a clean state on respawn — it
+        // is NOT holding any button, regardless of what was being held
+        // mid-attempt. To keep the macro consistent with that physical
+        // reality, synthesize a release event at the respawn frame for
+        // every button the surviving inputs say is still held. Without
+        // this, a button held across the death (e.g. the right-arrow
+        // on a ship part) would never get released in the macro and
+        // dedupe would silently drop the next press.
+        bool dual = m_gameState.m_isDualMode &&
+                    m_levelSettings &&
+                    m_levelSettings->m_twoPlayerMode;
+
+        auto releaseAllHeld = [&](bool* held, bool p2) {
+            for (int b = 1; b <= 7; ++b) {
+                if (!held[b]) continue;
+                mgr->currentReplay->addInput(frame, b, p2, false);
+                held[b] = false;
             }
-        }
+        };
+        releaseAllHeld(mgr->p1ButtonHeld, false);
+        if (dual) releaseAllHeld(mgr->p2ButtonHeld, true);
+
+        if (m_player1) m_player1->m_isDashing = false;
+        if (dual && m_player2) m_player2->m_isDashing = false;
     }
 
     void destroyPlayer(PlayerObject* player, GameObject* obj) {
@@ -106,11 +132,16 @@ class $modify(zRecPL, PlayLayer) {
         if (mgr->state == RECORD && mgr->currentReplay) {
             mgr->levelCompleted = true;
             if (mgr->autoSave) {
-                mgr->currentReplay->save();
+                mgr->currentReplay->save(mgr->minHoldFrames, mgr->minGapFrames);
                 Notification::create("Perfect macro saved",
                     NotificationIcon::Success, 1.5f)->show();
             }
         }
+
+        // Mark the level as freshly finished so the GUI can hide the
+        // floating ball / panel until the player returns to the menu
+        // (when "Hide after finish" is enabled).
+        mgr->hudHiddenAfterFinish = true;
 
         // Auto-Safe Mode at the finish line: swallow the real
         // levelComplete call so GD never counts the run, never grants
@@ -136,7 +167,7 @@ class $modify(zRecPL, PlayLayer) {
             // Users can still hit "Save" manually from the GUI to write
             // an in-progress recording — that path bypasses this gate.
             if (!mgr->perfectRunOnly || mgr->levelCompleted) {
-                mgr->currentReplay->save();
+                mgr->currentReplay->save(mgr->minHoldFrames, mgr->minGapFrames);
             }
         }
         PlayLayer::onExit();

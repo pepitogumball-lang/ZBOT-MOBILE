@@ -2,6 +2,7 @@
 #include "zBot.hpp"
 #include "replay.hpp"
 #include <Geode/modify/LoadingLayer.hpp>
+#include <Geode/modify/MenuLayer.hpp>
 #include <Geode/ui/Notification.hpp>
 
 #include <algorithm>
@@ -199,8 +200,8 @@ void GUI::renderFloatingBall() {
                 IM_COL32(255, 255, 255, 255), label);
 
     // Tiny coloured dot in the corner reflecting state: red while
-    // recording, green during playback — visible even with the panel
-    // closed.
+    // recording, green during playback, violet while the spammer is
+    // active — visible even with the panel closed.
     zBot* mgr = zBot::get();
     if (mgr->state == RECORD) {
         dl->AddCircleFilled(ImVec2(center.x + kBallRadius * 0.65f,
@@ -210,6 +211,11 @@ void GUI::renderFloatingBall() {
         dl->AddCircleFilled(ImVec2(center.x + kBallRadius * 0.65f,
                                    center.y - kBallRadius * 0.65f),
                             5.f, IM_COL32(80, 220, 120, 255), 16);
+    }
+    if (mgr->spamEnabled) {
+        dl->AddCircleFilled(ImVec2(center.x - kBallRadius * 0.65f,
+                                   center.y - kBallRadius * 0.65f),
+                            4.f, IM_COL32(180, 150, 255, 255), 16);
     }
 
     ImGui::End();
@@ -339,7 +345,7 @@ void GUI::renderMacroTab() {
         if (mgr->currentReplay) {
             std::string clean = sanitizeName(mgr->loadName);
             if (!clean.empty()) mgr->currentReplay->name = clean;
-            mgr->currentReplay->save();
+            mgr->currentReplay->save(mgr->minHoldFrames, mgr->minGapFrames);
             macrosDirty = true;
             Notification::create("Macro saved", NotificationIcon::Success, 1.0f)->show();
         } else {
@@ -392,6 +398,34 @@ void GUI::renderMacroTab() {
                           "held state of a button. Eliminates glitchy\n"
                           "double-taps and bouncing taps.");
     }
+
+    ImGui::TextDisabled("Spam-safe spacing (frames):");
+    ImGui::SetNextItemWidth(120.f);
+    if (ImGui::InputInt("Min hold##sp", &mgr->minHoldFrames, 1, 4)) {
+        if (mgr->minHoldFrames < 0) mgr->minHoldFrames = 0;
+        if (mgr->minHoldFrames > 60) mgr->minHoldFrames = 60;
+        qDirty = true;
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Force every press to be held for at least\n"
+                          "this many frames before its release lands.\n"
+                          "Stops GD from eating same-frame press+release\n"
+                          "tuples produced by extreme spam taps.\n"
+                          "Default: 1");
+    }
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(120.f);
+    if (ImGui::InputInt("Min gap##sp", &mgr->minGapFrames, 1, 4)) {
+        if (mgr->minGapFrames < 0) mgr->minGapFrames = 0;
+        if (mgr->minGapFrames > 60) mgr->minGapFrames = 60;
+        qDirty = true;
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Force at least this many frames between\n"
+                          "consecutive presses of the same button.\n"
+                          "Default: 1");
+    }
+
     if (qDirty) mgr->saveSettings();
 
     ImGui::Spacing();
@@ -599,7 +633,114 @@ void GUI::renderSpeedTab() {
 }
 
 // ---------------------------------------------------------------------------
-// Settings tab: safety, audio, misc
+// Spam tab: built-in autoclicker / spammer
+// ---------------------------------------------------------------------------
+void GUI::renderSpamTab() {
+    zBot* mgr = zBot::get();
+
+    ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "Spam / autoclicker");
+    ImGui::Separator();
+    ImGui::TextDisabled("Drives the chosen button on a configurable\n"
+                        "press/release cycle while you're in a level.");
+
+    bool dirty = false;
+
+    dirty |= ImGui::Checkbox("Enabled##spam", &mgr->spamEnabled);
+    ImGui::SameLine();
+    dirty |= ImGui::Checkbox("Only while playing", &mgr->spamOnlyDuringPlay);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Pause the spammer while the game is paused\n"
+                          "or in a transition. Recommended.");
+    }
+
+    // Button picker (Jump / Left / Right -> PlayerButton 1/2/3).
+    static const char* kButtonLabels[] = { "Jump", "Left", "Right" };
+    int btnIdx = std::clamp(mgr->spamButton - 1, 0, 2);
+    ImGui::SetNextItemWidth(160.f);
+    if (ImGui::Combo("Button", &btnIdx, kButtonLabels, IM_ARRAYSIZE(kButtonLabels))) {
+        mgr->spamButton = btnIdx + 1;
+        dirty = true;
+    }
+
+    // Player picker.
+    static const char* kPlayerLabels[] = { "Player 1", "Player 2", "Both" };
+    int plIdx = std::clamp(mgr->spamPlayer, 0, 2);
+    ImGui::SetNextItemWidth(160.f);
+    if (ImGui::Combo("Player", &plIdx, kPlayerLabels, IM_ARRAYSIZE(kPlayerLabels))) {
+        mgr->spamPlayer = plIdx;
+        dirty = true;
+    }
+
+    // CPS slider with finger-friendly extents.
+    float cps = static_cast<float>(mgr->spamCPS);
+    if (ImGui::SliderFloat("CPS", &cps, 0.5f, 60.f, "%.1f", ImGuiSliderFlags_AlwaysClamp)) {
+        if (cps < 0.1f) cps = 0.1f;
+        mgr->spamCPS = static_cast<double>(cps);
+        dirty = true;
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Clicks per second. Internally converted to\n"
+                          "frames using the macro framerate (240 TPS).");
+    }
+
+    // Hold ratio slider.
+    float ratio = static_cast<float>(mgr->spamHoldRatio);
+    if (ImGui::SliderFloat("Hold ratio", &ratio, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp)) {
+        mgr->spamHoldRatio = static_cast<double>(ratio);
+        dirty = true;
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Fraction of the cycle the button is held.\n"
+                          "0.5 = even press/release\n"
+                          "0.1 = brief tap\n"
+                          "0.9 = long hold with brief release");
+    }
+
+    // CPS quick-presets row.
+    static const struct { const char* label; double cps; } kCpsPresets[] = {
+        { "1",   1.0  },
+        { "5",   5.0  },
+        { "10",  10.0 },
+        { "15",  15.0 },
+        { "20",  20.0 },
+        { "30",  30.0 },
+    };
+    ImGui::TextDisabled("Quick CPS:");
+    for (size_t i = 0; i < sizeof(kCpsPresets) / sizeof(kCpsPresets[0]); ++i) {
+        if (i > 0) ImGui::SameLine();
+        bool matches = std::fabs(mgr->spamCPS - kCpsPresets[i].cps) < 1e-3;
+        if (matches) {
+            ImGui::PushStyleColor(ImGuiCol_Button,        IM_COL32(170, 140, 255, 230));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, IM_COL32(190, 160, 255, 245));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive,  IM_COL32(210, 180, 255, 255));
+            ImGui::PushStyleColor(ImGuiCol_Text,          IM_COL32(20, 20, 30, 255));
+        }
+        if (ImGui::SmallButton(kCpsPresets[i].label)) {
+            mgr->spamCPS = kCpsPresets[i].cps;
+            dirty = true;
+        }
+        if (matches) ImGui::PopStyleColor(4);
+    }
+
+    ImGui::Spacing();
+    dirty |= ImGui::Checkbox("Record spam into macro", &mgr->spamRecordToMacro);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("By default, spam events are NOT written into\n"
+                          "the macro so saved files stay clean. Turn this\n"
+                          "on if you want a recorded macro that contains\n"
+                          "the spam pattern itself.");
+    }
+
+    ImGui::Spacing();
+    ImGui::TextColored(
+        mgr->spamEnabled ? ImVec4(0.6f, 1.0f, 0.6f, 1.0f) : ImVec4(0.6f, 0.6f, 0.7f, 1.f),
+        "Status: %s", mgr->spamEnabled ? "ARMED" : "off");
+
+    if (dirty) mgr->saveSettings();
+}
+
+// ---------------------------------------------------------------------------
+// Settings tab: safety, audio, visibility, misc
 // ---------------------------------------------------------------------------
 void GUI::renderSettingsTab() {
     zBot* mgr = zBot::get();
@@ -625,12 +766,37 @@ void GUI::renderSettingsTab() {
     }
 
     ImGui::Spacing();
+    ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "Menu visibility");
+    ImGui::Separator();
+    ImGui::TextDisabled("Hide the floating Z ball + panel based on\n"
+                        "where you are in the game.");
+
+    stDirty |= ImGui::Checkbox("Hide while playing", &mgr->hideWhilePlaying);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Hide the menu while a level is being actively\n"
+                          "played. It reappears as soon as the game is\n"
+                          "paused.");
+    }
+    stDirty |= ImGui::Checkbox("Hide after finishing a level", &mgr->hideAfterFinish);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Hide the menu once the level is completed.\n"
+                          "It reappears when you return to the main menu.");
+    }
+    stDirty |= ImGui::Checkbox("Only show in main menu", &mgr->onlyShowInMenu);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Master switch: keep the menu hidden whenever\n"
+                          "you're inside a level (paused or otherwise).\n"
+                          "Only appears on the main menu / level select.");
+    }
+
+    ImGui::Spacing();
     ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "About");
     ImGui::Separator();
     ImGui::TextWrapped(
-        "ZBOT-MOBILE v1.3.0 - macro / clock speedhack mod for Geometry Dash.\n"
+        "ZBOT-MOBILE %s - macro / clock speedhack mod for Geometry Dash.\n"
         "Inspired by FigmentBoy/zBot, Zilko/xdBot, and EclipseMenu.\n"
-        "Settings are remembered between sessions.");
+        "Settings are remembered between sessions.",
+        ZBOT_VERSION);
     ImGui::TextDisabled("Tip: drag the floating Z ball to move it; tap to toggle.");
 
     if (stDirty) mgr->saveSettings();
@@ -640,8 +806,8 @@ void GUI::renderSettingsTab() {
 // Main panel
 // ---------------------------------------------------------------------------
 void GUI::renderMainPanel() {
-    ImGui::SetNextWindowSize(ImVec2(440, 580), ImGuiCond_Once);
-    ImGui::SetNextWindowSizeConstraints(ImVec2(340, 380), ImVec2(900, 1400));
+    ImGui::SetNextWindowSize(ImVec2(460, 600), ImGuiCond_Once);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(360, 400), ImVec2(900, 1400));
 
     // Built-in close (X) is rendered by ImGui when we pass &visible.
     if (!ImGui::Begin("ZBOT-MOBILE", &visible)) {
@@ -650,7 +816,8 @@ void GUI::renderMainPanel() {
     }
 
     // Header row: title + finger-friendly X close button.
-    ImGui::TextColored(ImVec4(0.85f, 0.78f, 1.0f, 1.f), "ZBOT-MOBILE v1.3.0");
+    ImGui::TextColored(ImVec4(0.85f, 0.78f, 1.0f, 1.f),
+                       "ZBOT-MOBILE %s", ZBOT_VERSION);
     ImGui::SameLine(ImGui::GetWindowWidth() - 56.f);
     if (ImGui::Button("X", ImVec2(36.f, 26.f))) {
         visible = false;
@@ -669,6 +836,10 @@ void GUI::renderMainPanel() {
         }
         if (ImGui::BeginTabItem("Speed")) {
             renderSpeedTab();
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Spam")) {
+            renderSpamTab();
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Settings")) {
@@ -702,14 +873,51 @@ void GUI::renderMainPanel() {
     ImGui::TextDisabled(" | ");
     ImGui::SameLine();
     ImGui::Text("%.2fx", mgr->speed);
+    if (mgr->spamEnabled) {
+        ImGui::SameLine();
+        ImGui::TextDisabled(" | ");
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(0.75f, 0.6f, 1.f, 1.f),
+                           "spam %.1f cps", mgr->spamCPS);
+    }
 
     ImGui::End();
+}
+
+// ---------------------------------------------------------------------------
+// Visibility decision
+// ---------------------------------------------------------------------------
+//
+// Combines the user's three visibility toggles with the live scene
+// state to decide whether the floating ball + panel should render this
+// frame at all. The flags compose as follows (most restrictive first):
+//
+//   onlyShowInMenu  -> hide whenever any PlayLayer is active
+//   hideAfterFinish -> hide once a level is completed (until menu)
+//   hideWhilePlaying-> hide while in a level and not paused
+//
+// PlayLayer::get() being non-null means we're inside a level (paused
+// or otherwise). CCDirector::isPaused() flips on while the pause menu
+// is up, which is the conventional "paused" check on cocos2d-x.
+bool GUI::shouldRenderHud() {
+    zBot* mgr = zBot::get();
+    auto* pl = PlayLayer::get();
+    bool inLevel = pl != nullptr;
+    bool paused  = inLevel && cocos2d::CCDirector::sharedDirector() &&
+                   cocos2d::CCDirector::sharedDirector()->isPaused();
+
+    if (mgr->onlyShowInMenu && inLevel) return false;
+    if (mgr->hideAfterFinish && mgr->hudHiddenAfterFinish) return false;
+    if (mgr->hideWhilePlaying && inLevel && !paused) return false;
+
+    return true;
 }
 
 // ---------------------------------------------------------------------------
 // Top-level renderer
 // ---------------------------------------------------------------------------
 void GUI::renderer() {
+    if (!shouldRenderHud()) return;
     renderFloatingBall();
     if (visible) renderMainPanel();
 }
@@ -737,6 +945,16 @@ class $modify(zLoadingLayer, LoadingLayer) {
             GUI::get()->renderer();
         });
 
+        return true;
+    }
+};
+
+// Returning to the main menu clears the "level just finished" HUD-hide
+// flag so the user can find the menu again after a successful run.
+class $modify(zMenuLayer, MenuLayer) {
+    bool init() {
+        if (!MenuLayer::init()) return false;
+        zBot::get()->hudHiddenAfterFinish = false;
         return true;
     }
 };
