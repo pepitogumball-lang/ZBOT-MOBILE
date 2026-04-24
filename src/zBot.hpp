@@ -24,6 +24,7 @@ public:
     bool doAdvance = false;
     bool speedHackAudio = true;
     bool clickbotEnabled = false;
+    bool autoSafeMode = false;
 
     double speed = 1;
     double tps = 240.f;

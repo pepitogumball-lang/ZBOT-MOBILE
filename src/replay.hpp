@@ -17,14 +17,16 @@ struct zInput : gdr::Input {
         : Input(frame, button, player2, down) {}
 };
 
-struct zReplay : gdr::Replay {
+struct zReplay : gdr::Replay<zReplay, zInput> {
     std::string name;
 
-    zReplay() : Replay("zBot", MOD_VERSION) {}
+    zReplay() : Replay("zBot-mobile", "1.0.0") {}
 
     void save() {
         author = GJAccountManager::get()->m_username;
-        duration = inputs.size() > 0 ? (float)inputs.back().frame / (float)framerate : 0;
+        duration = inputs.size() > 0
+            ? static_cast<float>(inputs.back().frame) / static_cast<float>(framerate)
+            : 0.f;
 
         auto dir = geode::prelude::Mod::get()->getSaveDir() / "replays";
         if (!std::filesystem::exists(dir)) {
@@ -57,7 +59,7 @@ struct zReplay : gdr::Replay {
             f.close();
 
             zReplay* ret = new zReplay();
-            *static_cast<gdr::Replay*>(ret) = gdr::Replay::importData(data);
+            *ret = importData(data);
             ret->name = fileName;
 
             return ret;
@@ -67,13 +69,12 @@ struct zReplay : gdr::Replay {
     }
 
     void purgeAfter(int frame) {
-        inputs.erase(std::remove_if(inputs.begin(), inputs.end(), [frame](const gdr::Input& input) {
+        inputs.erase(std::remove_if(inputs.begin(), inputs.end(), [frame](const zInput& input) {
             return input.frame >= frame;
         }), inputs.end());
     }
 
     void addInput(int frame, int button, bool player2, bool down) {
-        // log::info("Adding input: frame: {}, button: {}, player2: {}, down: {}", frame, button, player2, down);
         inputs.emplace_back(frame, button, player2, down);
     }
 };

@@ -50,6 +50,16 @@ void GUI::renderMainPanel() {
     float speed = (float)mgr->speed;
     if (ImGui::InputFloat("Speed", &speed)) mgr->speed = (double)speed;
 
+    ImGui::Separator();
+
+    // Auto-Safe Mode: keep the level showing normally but skip death events
+    // during record/playback. Perfect for clean macros and showcases.
+    ImGui::Checkbox("Auto-Safe Mode", &mgr->autoSafeMode);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Prevents the player from dying while recording or\n"
+                          "playing back a macro. Level stays visually unchanged.");
+    }
+
     if (ImGui::Button("Save Replay")) {
         if (mgr->currentReplay) mgr->currentReplay->save();
     }

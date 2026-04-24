@@ -2,6 +2,7 @@
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/GJBaseGameLayer.hpp>
 #include <Geode/modify/CheckpointObject.hpp>
+#include <Geode/modify/PlayerObject.hpp>
 
 using namespace geode::prelude;
 
@@ -60,5 +61,16 @@ class $modify(zPL, PlayLayer) {
             mgr->currentReplay->purgeAfter(resumeFrame);
         }
         PlayLayer::resetLevel();
+    }
+
+    // Auto-Safe Mode: prevent the player from dying while recording or
+    // playing back a macro. Useful for clean showcases. The level itself
+    // stays visually unmodified — we only skip the death event.
+    void destroyPlayer(PlayerObject* player, GameObject* obj) {
+        zBot* mgr = zBot::get();
+        if (mgr->autoSafeMode && (mgr->state == RECORD || mgr->state == PLAYBACK)) {
+            return;
+        }
+        PlayLayer::destroyPlayer(player, obj);
     }
 };
