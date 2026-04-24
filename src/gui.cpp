@@ -159,7 +159,7 @@ void GUI::renderFloatingBall() {
             ballPos.x += delta.x;
             ballPos.y += delta.y;
         }
-        if (ImGui::IsMouseDragPastThreshold(ImGuiMouseButton_Left, kDragSlop)) {
+        if (ImGui::IsMouseDragging(ImGuiMouseButton_Left, kDragSlop)) {
             ballDragging = true;
         }
     }

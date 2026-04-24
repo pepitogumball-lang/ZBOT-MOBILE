@@ -70,14 +70,35 @@ jobs:
       - name: List downloaded files
         run: ls -la ./release-files
 
-      - name: Publish GitHub Release
+      # Wipe the previous "latest" release + tag so the new one fully
+      # replaces it (assets, body, timestamp). Without this, uploads
+      # would fail on duplicate filenames and the release page would
+      # accumulate stale artifacts.
+      - name: Delete previous "latest" release
+        env:
+          GH_TOKEN: ${{ secrets.ZBOT_GITHUB_PAT || secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -e
+          echo "Looking for existing release with tag 'latest'..."
+          if gh release view latest --repo "$REPO" >/dev/null 2>&1; then
+            echo "Deleting existing release..."
+            gh release delete latest --repo "$REPO" --yes --cleanup-tag
+          else
+            echo "No existing 'latest' release."
+          fi
+
+      - name: Publish rolling "latest" GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.run_number }}
-          name: ZBOT-MOBILE build #${{ github.run_number }}
+          tag_name: latest
+          name: ZBOT-MOBILE (latest build)
           body: |
-            Automated Android build of ZBOT-MOBILE.
+            Automated Android build of ZBOT-MOBILE — this release is
+            replaced every time `main` is updated, so the files below
+            are always the freshest build.
 
+            **Build:** #${{ github.run_number }}
             **Commit:** ${{ github.sha }}
             **Message:** ${{ github.event.head_commit.message }}
 
@@ -88,5 +109,7 @@ jobs:
             Macros will be saved to:
             `/storage/emulated/0/Android/media/com.geode.launcher/game/geode/macros/`
           files: ./release-files/*
+          target_commitish: ${{ github.sha }}
           prerelease: false
+          make_latest: "true"
           token: ${{ secrets.ZBOT_GITHUB_PAT || secrets.GITHUB_TOKEN }}
