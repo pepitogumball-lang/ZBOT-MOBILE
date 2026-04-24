@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ZBOT-MOBILE — Geode Mod</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --panel: #141821;
+    --panel-2: #1b212d;
+    --text: #e6e8ee;
+    --muted: #9aa3b2;
+    --accent: #6ee7b7;
+    --accent-2: #60a5fa;
+    --border: #232a38;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+    background: radial-gradient(1200px 600px at 20% -10%, #1a2236 0%, transparent 60%),
+                radial-gradient(900px 500px at 110% 10%, #11202a 0%, transparent 55%),
+                var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 48px 24px 80px; }
+  header { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
+  .logo {
+    width: 56px; height: 56px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; color: #0b0d12; font-size: 22px;
+  }
+  h1 { margin: 0; font-size: 28px; letter-spacing: -0.01em; }
+  .subtitle { color: var(--muted); margin: 4px 0 0; font-size: 14px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 28px; }
+  .badge {
+    background: var(--panel); border: 1px solid var(--border);
+    color: var(--text); padding: 6px 10px; border-radius: 999px;
+    font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .badge b { color: var(--accent); font-weight: 600; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 22px 24px; margin: 16px 0;
+  }
+  .card h2 { margin: 0 0 10px; font-size: 18px; }
+  .card p { margin: 6px 0; color: var(--text); }
+  .muted { color: var(--muted); }
+  code, pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+  }
+  pre {
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px; overflow-x: auto;
+  }
+  code.inline {
+    background: var(--panel-2); border: 1px solid var(--border);
+    padding: 2px 6px; border-radius: 6px;
+  }
+  ul { margin: 8px 0 0; padding-left: 20px; }
+  li { margin: 4px 0; }
+  a { color: var(--accent-2); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  footer { color: var(--muted); font-size: 12px; margin-top: 28px; text-align: center; }
+  .notice {
+    border-left: 3px solid var(--accent);
+    background: rgba(110, 231, 183, 0.06);
+    padding: 12px 14px; border-radius: 8px; margin: 12px 0 0;
+    color: var(--text);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">Z</div>
+    <div>
+      <h1>ZBOT-MOBILE</h1>
+      <p class="subtitle">A Geode SDK mod for Geometry Dash (Android &amp; Windows) — work in progress.</p>
+    </div>
+  </header>
+
+  <div class="badges">
+    <span class="badge">type: <b>Geode mod (C++)</b></span>
+    <span class="badge">geode: <b>5.6.1</b></span>
+    <span class="badge">gd: <b>2.2081</b></span>
+    <span class="badge">id: <b>pepitogumball.zbot_mobile</b></span>
+    <span class="badge">version: <b>v1.0.0</b></span>
+  </div>
+
+  <div class="card">
+    <h2>What is this?</h2>
+    <p>
+      ZBOT-MOBILE is a remastered, mobile-friendly version of <strong>zBot</strong>, a
+      macro/replay tool for the rhythm game <em>Geometry Dash</em>. It is built as a
+      <a href="https://geode-sdk.org/" target="_blank" rel="noopener">Geode SDK</a> mod
+      and compiles to a <code class="inline">.geode</code> file that the game loads at
+      runtime.
+    </p>
+    <div class="notice">
+      This project is <strong>not a web app</strong>. There is no server or browser UI
+      to run — the page you are viewing is just an info dashboard for the imported
+      repository. Building and using the mod requires the Geode toolchain and a copy
+      of Geometry Dash on Android, Windows, macOS, or iOS.
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Project layout</h2>
+      <ul>
+        <li><code class="inline">src/</code> — C++ sources (main, gui, recording, playback, speedhack)</li>
+        <li><code class="inline">resources/</code> — packaged assets (e.g. logo.png)</li>
+        <li><code class="inline">CMakeLists.txt</code> — CMake build, pulls deps via CPM</li>
+        <li><code class="inline">mod.json</code> — Geode mod manifest</li>
+        <li><code class="inline">.github/workflows/build.yml</code> — Android CI build</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Dependencies</h2>
+      <ul>
+        <li><a href="https://github.com/geode-sdk/geode" target="_blank" rel="noopener">Geode SDK</a> (via <code class="inline">GEODE_SDK</code> env var)</li>
+        <li><a href="https://github.com/maxnut/GDReplayFormat" target="_blank" rel="noopener">GDReplayFormat</a></li>
+        <li><a href="https://github.com/matcool/gd-imgui-cocos" target="_blank" rel="noopener">gd-imgui-cocos</a></li>
+        <li>C++23, CMake ≥ 3.25</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Build (locally, with Geode toolchain)</h2>
+    <p class="muted">Requires the Geode CLI, Geode SDK, and platform-specific toolchains (Android NDK for Android targets).</p>
+<pre># install the Geode CLI (see https://docs.geode-sdk.org)
+# then, from the project root:
+geode sdk install
+geode build               # builds for your host platform
+# or target Android explicitly:
+geode build -p android64</pre>
+  </div>
+
+  <div class="card">
+    <h2>Continuous integration</h2>
+    <p>
+      The repository ships a GitHub Actions workflow
+      (<code class="inline">.github/workflows/build.yml</code>) that builds Android32 and
+      Android64 <code class="inline">.geode</code> artifacts on every push to <code class="inline">main</code>
+      and publishes them as a release.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Install the built mod</h2>
+    <p>Drop the produced <code class="inline">.geode</code> file into your Geometry Dash mods folder:</p>
+<pre>Android: /storage/emulated/0/Android/media/com.geode.launcher/game/geode/mods/
+Windows: %LocalAppData%\GeometryDash\geode\mods\</pre>
+    <p class="muted">Recorded macros are saved under <code class="inline">geode/macros/</code>.</p>
+  </div>
+
+  <footer>
+    Imported into Replit · ZBOT-MOBILE by pepitogumball
+  </footer>
+</div>
+</body>
+</html>
