@@ -1,28 +1,26 @@
 {
-	"geode": "5.6.1",
-	"gd": {
-		"win": "2.2074",
-		"android": "2.206"
-	},
-	"version": "v1.0.0",
-	"id": "pepitogumball.zbot_mobile",
-	"name": "ZBOT-MOBILE",
-	"developer": "pepitogumball",
-	"description": "ZBOT BUT MOBILE (WORK IN PROGRESS) - A remastered version of zBot for Android and Windows.",
-	"dependencies": [
-		{
-			"id": "geode.custom-keybinds",
-			"version": "v1.10.0",
-			"importance": "required"
-		}
-	],
-	"resources": {
-		"files": [
-			"*.png"
-		]
-	},
-	"settings": {
-	},
-	"early-load": true
+    "geode": "5.6.1",
+    "version": "v1.0.0",
+    "id": "pepitogumball.zbot_mobile",
+    "name": "ZBOT-MOBILE",
+    "developer": "pepitogumball",
+    "description": "ZBOT BUT MOBILE (WORK IN PROGRESS) - A remastered version of zBot for Android and Windows.",
+    "early-load": true,
+    "dependencies": [
+        {
+            "id": "geode.custom-keybinds",
+            "version": "v1.10.0",
+            "importance": "required"
+        }
+    ],
+    "gd": {
+        "android": "2.2081",
+        "win": "2.2081"
+    },
+    "resources": {
+        "files": [
+            "*.png"
+        ]
+    },
+    "settings": {}
 }
-
