@@ -40,5 +40,6 @@ endif()
 add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
 
 # Link dependencies and setup Geode
-target_link_libraries(ZBOT_MOBILE PUBLIC libGDR imgui-cocos)
+# Using plain signature to avoid mixing with Geode's internal calls
+target_link_libraries(ZBOT_MOBILE libGDR imgui-cocos)
 setup_geode_mod(ZBOT_MOBILE)
