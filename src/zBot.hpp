@@ -22,12 +22,15 @@ public:
     bool ignoreInput = false;
     bool frameAdvance = false;
     bool doAdvance = false;
+
+    bool speedHackEnabled = false;
     bool speedHackAudio = true;
     bool clickbotEnabled = false;
     bool autoSafeMode = false;
 
-    double speed = 1;
-    double tps = 240.f;
+    double speed = 1.0;
+    double tps = 240.0;
+    char loadName[128] = "";
     zReplay* currentReplay = nullptr;
 
     void createNewReplay(GJGameLevel* level) {
@@ -36,7 +39,11 @@ public:
         currentReplay->levelInfo.id = level->m_levelID;
         currentReplay->levelInfo.name = level->m_levelName;
         currentReplay->name = level->m_levelName;
-        currentReplay->framerate = tps;
+        // Macros are saved at the canonical 240 TPS so playback always
+        // produces a normal-speed run, even if speedhack was on while
+        // recording. Inputs are stored by in-game frame number, which is
+        // not affected by the real-time speedhack.
+        currentReplay->framerate = 240.0;
     }
 
     static zBot* get() {

@@ -27,6 +27,10 @@ set(SOURCES
     src/main.cpp
     src/zBot.cpp
     src/gui.cpp
+    src/recordmanager.cpp
+    src/playbackmanager.cpp
+    src/speedhack.cpp
+    src/speedhackaudio.cpp
 )
 
 # Set up the mod binary

@@ -1,5 +1,6 @@
 #include "gui.hpp"
 #include "zBot.hpp"
+#include "replay.hpp"
 #include <Geode/modify/LoadingLayer.hpp>
 
 using namespace geode::prelude;
@@ -8,7 +9,9 @@ void GUI::renderReplayInfo() {
     zBot* mgr = zBot::get();
     if (mgr->currentReplay) {
         ImGui::Text("Replay: %s", mgr->currentReplay->name.c_str());
-        ImGui::Text("TPS: %.0f", mgr->currentReplay->framerate);
+        ImGui::Text("Inputs: %zu  TPS: %.0f", mgr->currentReplay->inputs.size(), mgr->currentReplay->framerate);
+    } else {
+        ImGui::TextDisabled("No replay loaded");
     }
 }
 
@@ -21,7 +24,7 @@ void GUI::renderStateSwitcher() {
     if (ImGui::RadioButton("Record", &currentState, RECORD)) {
         mgr->state = RECORD;
         if (PlayLayer::get()) {
-             mgr->createNewReplay(PlayLayer::get()->m_level);
+            mgr->createNewReplay(PlayLayer::get()->m_level);
         }
     }
     ImGui::SameLine();
@@ -32,9 +35,9 @@ void GUI::renderStateSwitcher() {
 }
 
 void GUI::renderMainPanel() {
-    ImGui::SetNextWindowSize(ImVec2(350, 400), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(380, 460), ImGuiCond_Once);
     ImGui::Begin("ZBOT-MOBILE", &visible);
-    
+
     ImGui::TextColored(ImVec4(1.f, 0.78f, 0.17f, 1.f), "ZBOT-MOBILE v1.0.0");
     ImGui::Separator();
 
@@ -42,41 +45,94 @@ void GUI::renderMainPanel() {
     renderStateSwitcher();
 
     ImGui::Separator();
-    
+
     zBot* mgr = zBot::get();
-    float tps = (float)mgr->tps;
-    if (ImGui::InputFloat("TPS", &tps)) mgr->tps = (double)tps;
+
+    // ---- Speedhack ----
+    ImGui::Text("Speedhack");
+    ImGui::Checkbox("Enabled##sh", &mgr->speedHackEnabled);
+    ImGui::SameLine();
+    ImGui::Checkbox("Audio pitch", &mgr->speedHackAudio);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Pitch the music to match the game speed.\n"
+                          "Auto-engages when the speedhack is on.");
+    }
 
     float speed = (float)mgr->speed;
-    if (ImGui::InputFloat("Speed", &speed)) mgr->speed = (double)speed;
+    if (ImGui::InputFloat("Speed", &speed, 0.05f, 0.25f, "%.3f")) {
+        if (speed > 0.f) mgr->speed = (double)speed;
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Try 0.25, 0.5, 2.0, etc.\n"
+                          "Macros are always saved at normal 240 TPS,\n"
+                          "so the slow-mo clicks come out perfect at full speed.");
+    }
 
     ImGui::Separator();
 
-    // Auto-Safe Mode: keep the level showing normally but skip death events
-    // during record/playback. Perfect for clean macros and showcases.
+    // ---- Auto-Safe Mode ----
     ImGui::Checkbox("Auto-Safe Mode", &mgr->autoSafeMode);
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Prevents the player from dying while recording or\n"
-                          "playing back a macro. Level stays visually unchanged.");
+        ImGui::SetTooltip("Forces practice mode on level start so any new\n"
+                          "checkpoint you set doesn't count as a real run\n"
+                          "(no submission, no ban risk). Also blocks death\n"
+                          "events while a macro is recording or playing.\n"
+                          "The level itself stays visually unmodified.");
     }
 
-    if (ImGui::Button("Save Replay")) {
-        if (mgr->currentReplay) mgr->currentReplay->save();
+    ImGui::Separator();
+
+    // ---- Macro IO ----
+    ImGui::Text("Macro file");
+    ImGui::InputText("Name", mgr->loadName, IM_ARRAYSIZE(mgr->loadName));
+
+    if (ImGui::Button("Save")) {
+        if (mgr->currentReplay) {
+            if (mgr->loadName[0] != '\0') mgr->currentReplay->name = mgr->loadName;
+            mgr->currentReplay->save();
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Load")) {
+        if (mgr->loadName[0] != '\0') {
+            zReplay* r = zReplay::fromFile(mgr->loadName);
+            if (r) {
+                if (mgr->currentReplay) delete mgr->currentReplay;
+                mgr->currentReplay = r;
+            }
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Clear")) {
+        if (mgr->currentReplay) {
+            delete mgr->currentReplay;
+            mgr->currentReplay = nullptr;
+            mgr->state = NONE;
+        }
     }
 
     ImGui::End();
 }
 
 void GUI::renderer() {
-    if (!visible) return;
-    renderMainPanel();
+    // Always show a small floating toggle button on the screen so the
+    // panel can be opened/closed on Android where there's no keyboard.
+    ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Once);
+    ImGui::Begin("##ZBToggle", nullptr,
+        ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
+    if (ImGui::Button(visible ? "Hide ZBOT" : "Show ZBOT")) {
+        visible = !visible;
+    }
+    ImGui::End();
+
+    if (visible) renderMainPanel();
 }
 
 void GUI::setup() {
     ImGuiStyle& style = ImGui::GetStyle();
     style.WindowRounding = 5.0f;
     style.FrameRounding = 4.0f;
-    // ... custom styling if needed
 }
 
 class $modify(zLoadingLayer, LoadingLayer) {
@@ -92,6 +148,3 @@ class $modify(zLoadingLayer, LoadingLayer) {
         return true;
     }
 };
-
-// Toggle UI with a button or shortcut
-// For mobile, we might need a dedicated button on screen.
