@@ -47,15 +47,12 @@ class $modify(zPL, PlayLayer) {
             practice.checkpointFrames.push_back(static_cast<int>(m_gameState.m_currentProgress * mgr->tps));
         }
     }
-    void removeLastCheckpoint() {
-        PlayLayer::removeLastCheckpoint();
-        if (!practice.checkpointFrames.empty()) practice.checkpointFrames.pop_back();
-    }
+
     void resetLevel() {
         zBot* mgr = zBot::get();
         if (mgr->state == RECORD && mgr->currentReplay && m_isPracticeMode) {
             int resumeFrame = 0;
-            if (m_checkpoints->count() > 0 && !practice.checkpointFrames.empty()) {
+            if (!practice.checkpointFrames.empty()) {
                 resumeFrame = practice.checkpointFrames.back();
             }
             mgr->currentReplay->purgeAfter(resumeFrame);
