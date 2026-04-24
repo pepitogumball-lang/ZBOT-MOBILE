@@ -180,3 +180,30 @@ on every push to `main`. Drop the produced `.geode` file into:
   - `src/zBot.hpp`: added `hideInEditor` field with persistence,
     bumped `ZBOT_VERSION` to `v1.4.1`.
   - `mod.json`: bumped version to `v1.4.1`.
+- 2026-04-24: v1.4.2 macro replay fix + always-visible summon ball
+  (EclipseMenu / xdBot inspired).
+  - `src/playbackmanager.cpp`: the v1.4.1 resync fast-forwarded the
+    cursor past every input with `frame < currentFrame`
+    unconditionally. On a fresh level entry at frame=1 that meant
+    the frame-0 input got skipped forever and macros looked broken
+    ("loaded but nothing fires"). Now the cursor only fast-forwards
+    when joining mid-level (`frame > 1`); fresh entries and restarts
+    leave the cursor at 0 so frame-0 inputs fire on the next tick.
+    The mid-level brick-bug from v1.4.0 is still fixed.
+  - `src/gui.cpp` / `src/gui.hpp`: split `shouldRenderHud()` into
+    `shouldRenderBall()` and `shouldRenderPanel()`. The floating ball
+    is now an always-visible "summon" handle (only `onlyShowInMenu`
+    hides it) so the user is never stranded without a way to reopen
+    the panel during a pause. The heavy panel still respects every
+    visibility toggle independently. Matches EclipseMenu's behaviour
+    (their indicator stays visible while the big panel is hidden).
+  - `src/gui.cpp`: added an EclipseMenu-style filter input above the
+    macro list. Empty filter shows everything; otherwise
+    case-insensitive substring match on the macro name. Shows a
+    placeholder when the filter excludes every macro on disk.
+  - `src/gui.hpp`: new `macroFilter[64]` buffer for the filter text.
+  - `src/recordmanager.cpp`: gated `hudHiddenAfterFinish = true` on
+    the `hideAfterFinish` toggle so flipping the toggle on AFTER
+    finishing a level no longer instantly hides the menu.
+  - `src/zBot.hpp`: bumped `ZBOT_VERSION` to `v1.4.2`.
+  - `mod.json`: bumped version to `v1.4.2`.

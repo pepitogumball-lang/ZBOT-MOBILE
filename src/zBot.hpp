@@ -6,7 +6,7 @@
 
 using namespace geode::prelude;
 
-#define ZBOT_VERSION "v1.4.1"
+#define ZBOT_VERSION "v1.4.2"
 
 enum zState {
     NONE, RECORD, PLAYBACK

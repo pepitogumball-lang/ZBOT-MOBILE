@@ -139,9 +139,14 @@ class $modify(zRecPL, PlayLayer) {
         }
 
         // Mark the level as freshly finished so the GUI can hide the
-        // floating ball / panel until the player returns to the menu
-        // (when "Hide after finish" is enabled).
-        mgr->hudHiddenAfterFinish = true;
+        // panel until the player returns to the menu — but only when
+        // the user actually wants that behaviour. Setting the flag
+        // unconditionally meant toggling on "Hide after finish" *after*
+        // a level was completed would immediately hide the menu out
+        // of nowhere, which felt like a bug.
+        if (mgr->hideAfterFinish) {
+            mgr->hudHiddenAfterFinish = true;
+        }
 
         // Auto-Safe Mode at the finish line: swallow the real
         // levelComplete call so GD never counts the run, never grants

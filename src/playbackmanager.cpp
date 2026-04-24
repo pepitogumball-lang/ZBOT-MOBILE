@@ -62,22 +62,37 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
             //  - the replay pointer changes (user loaded a different
             //    macro mid-level)
             //  - the frame went backwards (death without a resetLevel
-            //    hook firing first)
+            //    hook firing first, or a checkpoint rewind)
             //  - the previous tick was NOT in PLAYBACK state (user just
             //    toggled it on without dying / changing scene)
-            // Without this, playback would replay every input from
-            // index 0 in a single frame and instantly brick the level.
-            if (m_fields->lastReplay != mgr->currentReplay ||
-                frame < m_fields->lastFrame ||
-                m_fields->lastState != PLAYBACK) {
+            //
+            // For fresh level entries and restarts (frame is at or near
+            // the start), the cursor stays at 0 and the fire loop below
+            // gets to fire any frame-0 inputs naturally on the next
+            // tick. For genuine mid-level joins (frame > 1) we
+            // fast-forward the cursor past historical inputs so we
+            // don't replay 500 frames of inputs in a single tick and
+            // instantly brick the level.
+            //
+            // The previous (v1.4.1) code skipped unconditionally, which
+            // meant on a fresh entry at frame=1 we'd skip past the
+            // frame-0 input forever and the macro looked broken.
+            bool replayChanged = (m_fields->lastReplay != mgr->currentReplay);
+            bool wentBack      = (frame < m_fields->lastFrame);
+            bool freshlyArmed  = (m_fields->lastState != PLAYBACK);
+
+            if (replayChanged || wentBack || freshlyArmed) {
                 m_fields->currIndex     = 0;
                 m_fields->clickBotIndex = 0;
                 m_fields->lastReplay    = mgr->currentReplay;
-                while (m_fields->currIndex < (int)mgr->currentReplay->inputs.size() &&
-                       mgr->currentReplay->inputs[m_fields->currIndex].frame < frame) {
-                    m_fields->currIndex++;
+
+                if (frame > 1) {
+                    while (m_fields->currIndex < (int)mgr->currentReplay->inputs.size() &&
+                           mgr->currentReplay->inputs[m_fields->currIndex].frame < frame) {
+                        m_fields->currIndex++;
+                    }
+                    m_fields->clickBotIndex = m_fields->currIndex;
                 }
-                m_fields->clickBotIndex = m_fields->currIndex;
             }
             m_fields->lastFrame = frame;
             m_fields->lastState = PLAYBACK;

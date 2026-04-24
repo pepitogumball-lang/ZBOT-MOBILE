@@ -444,12 +444,31 @@ void GUI::renderMacroTab() {
         return;
     }
 
+    // EclipseMenu-style filter: case-insensitive substring match on
+    // the macro display name. Empty filter shows everything.
+    ImGui::SetNextItemWidth(-1);
+    ImGui::InputTextWithHint("##macrofilter", "Filter by name...",
+                             macroFilter, IM_ARRAYSIZE(macroFilter));
+    auto matchesFilter = [this](const std::string& n) {
+        if (macroFilter[0] == '\0') return true;
+        std::string needle = macroFilter;
+        std::string hay    = n;
+        std::transform(needle.begin(), needle.end(), needle.begin(),
+            [](unsigned char c){ return std::tolower(c); });
+        std::transform(hay.begin(), hay.end(), hay.begin(),
+            [](unsigned char c){ return std::tolower(c); });
+        return hay.find(needle) != std::string::npos;
+    };
+
     ImGui::PushItemWidth(-1);
     if (ImGui::BeginListBox("##macrolist",
             ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 7.f))) {
+        int shown = 0;
         for (int i = 0; i < static_cast<int>(macros.size()); ++i) {
             const auto& info = macros[i];
             const std::string& n = info.name;
+            if (!matchesFilter(n)) continue;
+            ++shown;
             bool selected = (i == selectedMacro);
 
             // Row label: "name   |   size   |   date". The ##rowN suffix
@@ -481,6 +500,9 @@ void GUI::renderMacroTab() {
                     }
                 }
             }
+        }
+        if (shown == 0) {
+            ImGui::TextDisabled("  No macros match \"%s\".", macroFilter);
         }
         ImGui::EndListBox();
     }
@@ -895,21 +917,40 @@ void GUI::renderMainPanel() {
 // Visibility decision
 // ---------------------------------------------------------------------------
 //
-// Combines the user's visibility toggles with the live scene state to
-// decide whether the floating ball + panel should render this frame at
-// all. The flags compose as follows (most restrictive first):
+// Visibility decisions are split into two functions so the floating
+// ball can stay visible as a "summon" handle even while the heavy
+// main panel is hidden during gameplay. EclipseMenu and xdBot do the
+// same — there's always *something* clickable so the user is never
+// stranded without a way back to the menu.
 //
-//   onlyShowInMenu  -> hide whenever any PlayLayer / editor is active
-//   hideAfterFinish -> hide once a level is completed (until menu)
-//   hideWhilePlaying-> hide while in a level and not paused
-//   hideInEditor    -> hide while inside the level editor
+// The flags compose as follows (most restrictive first):
+//   onlyShowInMenu  -> hide everything while in a level / editor
+//   hideAfterFinish -> hide the panel once a level is completed
+//   hideWhilePlaying-> hide the panel while in a level, not paused
+//   hideInEditor    -> hide the panel while inside the level editor
+//
+// `onlyShowInMenu` is the only toggle that hides the floating ball.
+// All other toggles only hide the panel — the ball remains tappable
+// so the user can reopen the panel during a pause / on the next menu.
 //
 // PlayLayer::get() being non-null means we're inside a level (paused
 // or otherwise). PlayLayer::m_isPaused is the canonical pause flag;
 // CCDirector::isPaused() is unreliable on Android because GD's pause
 // menu overlays the scene without always pausing the director.
-// LevelEditorLayer::get() being non-null means we're in the editor.
-bool GUI::shouldRenderHud() {
+// LevelEditorLayer::get() being non-null means we're in the editor
+// (edit mode; test play exposes a PlayLayer too).
+bool GUI::shouldRenderBall() {
+    zBot* mgr = zBot::get();
+    auto* pl  = PlayLayer::get();
+    auto* led = LevelEditorLayer::get();
+    bool inLevel  = pl != nullptr;
+    bool inEditor = led != nullptr && pl == nullptr;
+
+    if (mgr->onlyShowInMenu && (inLevel || inEditor)) return false;
+    return true;
+}
+
+bool GUI::shouldRenderPanel() {
     zBot* mgr = zBot::get();
     auto* pl  = PlayLayer::get();
     auto* led = LevelEditorLayer::get();
@@ -929,9 +970,13 @@ bool GUI::shouldRenderHud() {
 // Top-level renderer
 // ---------------------------------------------------------------------------
 void GUI::renderer() {
-    if (!shouldRenderHud()) return;
-    renderFloatingBall();
-    if (visible) renderMainPanel();
+    // Ball is always available as a summon handle (subject only to
+    // `onlyShowInMenu`). The panel respects every visibility toggle
+    // independently, so "hide while playing" only hides the heavy
+    // panel while leaving the ball tappable for a quick re-open
+    // during a pause or on the next menu.
+    if (shouldRenderBall()) renderFloatingBall();
+    if (visible && shouldRenderPanel()) renderMainPanel();
 }
 
 void GUI::setup() {
