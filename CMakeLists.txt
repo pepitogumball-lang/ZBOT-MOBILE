@@ -1,21 +1,33 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.25)
 
-set(CMAKE_CXX_STANDARD 20 CACHE STRING "" FORCE)
-set(CMAKE_CXX_STANDARD_REQUIRED ON CACHE BOOL "" FORCE)
+project(ZBOT_MOBILE LANGUAGES CXX)
 
 include(FetchContent)
-FetchContent_Declare(geode GIT_REPOSITORY https://github.com/geode-sdk/geode.git GIT_TAG v5.6.1)
-FetchContent_MakeAvailable(geode)
 
-setup_geode_mod(ZBOT_MOBILE)
+# Geode should be found via find_package, not FetchContent
+find_package(Geode REQUIRED)
 
-project(ZBOT_MOBILE)
+# Setup the mod
+setup_geode_mod(pepitogumball.zbot_mobile)
+
+# CPM for dependencies
+if(NOT CPM_BINARY_DIR)
+    set(CPM_DOWNLOAD_LOCATION "${CMAKE_BINARY_DIR}/cmake/CPM.cmake")
+    if(NOT EXISTS "${CPM_DOWNLOAD_LOCATION}")
+        message(STATUS "Downloading CPM.cmake to ${CPM_DOWNLOAD_LOCATION}")
+        file(DOWNLOAD
+            https://github.com/cpm-cmake/CPM.cmake/releases/download/v0.38.3/CPM.cmake
+            "${CPM_DOWNLOAD_LOCATION}"
+        )
+    endif()
+    include("${CPM_DOWNLOAD_LOCATION}")
+endif()
 
 CPMAddPackage("gh:maxnut/GDReplayFormat#9c32b5529067901418ea6e4dfbd36437dc8712bc")
 CPMAddPackage("gh:matcool/gd-imgui-cocos#8973953519fa05d81c61634e585559ab87ca559d")
 
 add_geode_mod(
-    ZBOT_MOBILE
+    pepitogumball.zbot_mobile
     RESOURCES resources
     SOURCES
         src/main.cpp
@@ -23,4 +35,4 @@ add_geode_mod(
         src/gui.cpp
 )
 
-target_link_libraries(ZBOT_MOBILE PUBLIC geode-deps libGDR imgui-cocos)
+target_link_libraries(pepitogumball.zbot_mobile PUBLIC libGDR imgui-cocos)
