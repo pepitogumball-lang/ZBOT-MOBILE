@@ -309,7 +309,10 @@ void GUI::renderHomeTab() {
                            "Frame Advance: ON (level frozen)");
         auto* pl = PlayLayer::get();
         if (pl) {
-            int curFrame = static_cast<int>(pl->m_gameState.m_currentProgress);
+            // /2 to convert GD 2.208/2.2081's half-tick counter back
+            // to the real visual-frame number, matching what the
+            // recorder + playback paths now store and compare.
+            int curFrame = static_cast<int>(pl->m_gameState.m_currentProgress) / 2;
             ImGui::Text("Current frame: %d", curFrame);
         } else {
             ImGui::TextDisabled("Enter a level to start stepping.");

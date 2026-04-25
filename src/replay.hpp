@@ -32,12 +32,26 @@ struct zInput : gdr::Input {
 struct zReplay : gdr::Replay<zReplay, zInput> {
     std::string name;
 
-    // The "1.0.0" string here is the on-disk *gdr metadata format*
+    // The "2.0.0" string here is the on-disk *gdr metadata format*
     // version embedded in every saved macro — it tracks the replay
     // schema, NOT the user-facing mod version (see ZBOT_VERSION in
     // zBot.hpp). Bump only when the on-disk format itself changes in
     // a way other tools need to detect.
-    zReplay() : Replay("zBot-mobile", "1.0.0") {}
+    //
+    // Schema log:
+    //   1.0.0 - ZBOT-MOBILE v1.0 - v1.5.x. Frame numbers were stored
+    //           as raw GD 2.208/2.2081 m_currentProgress values, which
+    //           tick TWICE per visual frame. The saved `duration`
+    //           field was 2x reality and macros didn't interop with
+    //           any 2.208-aware tool. v1.5.x macros must be
+    //           re-recorded under v1.6.0+; we don't auto-migrate
+    //           because there's no fully-reliable way to detect the
+    //           old format from the gdr payload alone.
+    //   2.0.0 - ZBOT-MOBILE v1.6.0+. Frame numbers are stored at the
+    //           real visual-frame rate (m_currentProgress / 2). Saved
+    //           durations are honest. Frame-count compatible with
+    //           EclipseMenu / GDH / xdBot 2.208 macros.
+    zReplay() : Replay("zBot-mobile", "2.0.0") {}
 
     static std::filesystem::path macrosDir() {
         // On Android, macros live in the launcher's external media folder

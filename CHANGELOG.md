@@ -4,6 +4,71 @@ All notable changes to ZBOT-MOBILE are documented here. Versions follow
 the `vX.Y.Z` tag in `mod.json`; each entry corresponds to a GitHub
 Release published by `.github/workflows/build.yml`.
 
+## v1.6.0 — Audit sweep vs ReplayBot / zBot / EclipseMenu references
+
+Comparison pass against the three reference projects we credit
+(`matcool/ReplayBot-rewrite`, `FigmentBoy/zBot-main`,
+`Prevter/EclipseMenu-main`). The big finding is one EclipseMenu has a
+`TODO` comment for in `src/hacks/Bot/Bot.cpp`:
+
+> `// TODO: 2.208 made m_currentProgress count twice as fast, for now`
+> `// we just divide it by 2 to avoid breaking existing replays.`
+
+GD 2.208/2.2081 changed `GameStatsManager::m_currentProgress` so it
+ticks **twice per visual frame** (it now counts half-ticks). Our
+record + playback code was reading the raw value on both ends, which
+meant the macro played back at the right relative timing (symmetric
+read/write), but everything else expressed in "frames" was off by 2x:
+
+| Surface                     | Before v1.6.0          | After v1.6.0     |
+| --------------------------- | ---------------------- | ---------------- |
+| Saved `.gdr duration` field | 2x reality             | matches reality  |
+| Spam **CPS slider**         | half what was set      | matches slider   |
+| Clickbot SFX lookahead      | ~50 ms (half of 0.1 s) | full 100 ms      |
+| Frame Advance counter       | 2x reality             | real frame index |
+| `.gdr` interop              | broken (frames doubled) | EclipseMenu / GDH / xdBot 2.208 compatible |
+
+### Fix
+
+Mirror EclipseMenu's compensation at every site that reads or writes
+`m_currentProgress`:
+
+- `src/recordmanager.cpp` — `handleButton` hook divides
+  `m_gameState.m_currentProgress` by 2 before passing it to
+  `addInput`. The `resetLevel` post-call (which trims inputs after
+  checkpoint respawn) divides too, so checkpoint trimming still
+  matches the saved frames.
+- `src/playbackmanager.cpp` — `processCommands` samples the
+  comparison frame as `m_currentProgress / 2` before calling the
+  parent. The pre-parent sampling (added in v1.5.7) is preserved —
+  it's what removed the 1-tick playback lag.
+- `src/gui.cpp` — Frame Advance "Current frame:" readout divides
+  by 2 so the on-screen value is a real visual frame index.
+
+### On-disk format version
+
+`src/replay.hpp` bumps the embedded gdr metadata version string from
+`"1.0.0"` → `"2.0.0"`. Schema notes added inline. We **don't**
+auto-migrate v1.5.x macros — the gdr payload alone doesn't expose a
+fully reliable signal we could detect the old format from, and the
+mod has only existed for a few days. Users with v1.5.x macros need
+to re-record them under v1.6.0+.
+
+### Defensive null-check
+
+`src/recordmanager.cpp` — `m_levelSettings` is now null-guarded
+before reading `m_twoPlayerMode`. The hook can technically fire
+from a `GJBaseGameLayer` that isn't a `PlayLayer` (the editor is
+the obvious case), where `m_levelSettings` may be null. Treat
+"missing m_levelSettings" as single-player mode.
+
+### Versions
+
+- `mod.json` — `v1.5.10` → `v1.6.0`.
+- `src/zBot.hpp` — `ZBOT_VERSION` → `v1.6.0`.
+- `src/replay.hpp` — gdr metadata `"1.0.0"` → `"2.0.0"`.
+- `web/index.html` — version badge + summary copy refreshed.
+
 ## v1.5.9 — Build fix: update check Geode-5.x web API
 
 `src/updatecheck.cpp` referenced `EventListener<web::WebTask>` and

@@ -318,3 +318,41 @@ on every push to `main`. Drop the produced `.geode` file into:
   - `src/zBot.hpp`: bumped `ZBOT_VERSION` to `v1.5.10`.
   - `mod.json`: bumped version to `v1.5.10`.
   - `web/index.html`: bumped version badge + summary copy to v1.5.10.
+- 2026-04-25: v1.6.0 audit sweep vs ReplayBot / zBot / EclipseMenu refs.
+  - **The bug** (called out by an explicit `TODO` in EclipseMenu's
+    `src/hacks/Bot/Bot.cpp`): GD 2.208/2.2081 changed
+    `m_gameState.m_currentProgress` so it ticks **twice per visual
+    frame** (it counts half-ticks). v1.5.x read raw on both record and
+    playback so the macro played at the right relative timing, but
+    everything else expressed in "frames" was off by 2x: the saved
+    `.gdr duration` was doubled, the spam CPS slider produced half the
+    requested clicks/sec, the clickbot SFX `framerate * 0.1`
+    lookahead delivered ~50 ms instead of 100 ms, the Frame Advance
+    counter showed 2x reality, and saved files were not frame-compatible
+    with EclipseMenu/GDH/xdBot 2.208 macros.
+  - **The fix:** mirror EclipseMenu's compensation -- divide
+    `m_currentProgress` by 2 at every read/write site:
+    - `src/recordmanager.cpp::handleButton` stores
+      `m_currentProgress / 2` in `addInput`. Also added defensive
+      null-check on `m_levelSettings` for the two-player check
+      (the hook can fire from a non-`PlayLayer` `GJBaseGameLayer`,
+      e.g. the editor, where `m_levelSettings` may be null).
+    - `src/recordmanager.cpp` checkpoint trimming after `resetLevel`
+      uses `/ 2` so the trim frame matches the saved frame numbers.
+    - `src/playbackmanager.cpp::processCommands` samples
+      `m_currentProgress / 2` as the comparison frame (still BEFORE
+      parent dispatch -- the v1.5.7 lag fix is preserved).
+    - `src/gui.cpp::renderHomeTab` Frame Advance "Current frame:"
+      readout divides by 2 so the on-screen value is a real visual
+      frame index.
+  - **On-disk format version:** `src/replay.hpp` bumps the embedded
+    gdr metadata version string `"1.0.0"` -> `"2.0.0"` and adds a
+    schema log comment. v1.5.x macros are NOT auto-migrated -- the
+    gdr payload doesn't expose a fully reliable detection signal and
+    the mod has only been around a few days. Users with v1.5.x
+    macros need to re-record under v1.6.0+.
+  - `src/zBot.hpp`: bumped `ZBOT_VERSION` to `v1.6.0`.
+  - `mod.json`: bumped version to `v1.6.0`.
+  - `web/index.html`: bumped version badge + summary copy to v1.6.0.
+  - `CHANGELOG.md`: prepended a v1.6.0 section with a before/after
+    table covering every surface affected by the half-tick bug.

@@ -72,8 +72,16 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
         // which meant every replayed input arrived in GD's input buffer
         // one tick late. That cumulative 1-frame lag is what made saved
         // macros desync on playback, especially on fast levels.
+        //
+        // /2 because GD 2.208/2.2081 changed m_currentProgress to count
+        // half-ticks instead of visual frames -- it now ticks twice as
+        // fast as on older versions. The recorder applies the same /2,
+        // so the comparison is apples-to-apples and saved durations,
+        // spam phase math, and the clickbot SFX lookahead are all
+        // expressed in real visual frames. EclipseMenu's bot module
+        // (hacks/Bot/Bot.cpp::processBot) does the same compensation.
         // ---------------------------------------------------------------
-        int frame = static_cast<int>(m_gameState.m_currentProgress);
+        int frame = static_cast<int>(m_gameState.m_currentProgress) / 2;
         auto* pl = PlayLayer::get();
         bool inLevel = pl != nullptr;
 
