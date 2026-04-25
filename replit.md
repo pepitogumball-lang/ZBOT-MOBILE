@@ -298,3 +298,23 @@ on every push to `main`. Drop the produced `.geode` file into:
     `ZBOT_VERSION` to `v1.5.1`.
   - `mod.json`: bumped version to `v1.5.1`.
   - `web/index.html`: bumped version badge + summary copy to v1.5.1.
+- 2026-04-25: v1.5.10 macro playback fix on Android ("el macro no funciona").
+  - **The bug:** on Android (the only platform we ship to) GD's
+    `GJBaseGameLayer` keeps a per-frame `m_allowedButtons` set that
+    every `handleButton` call is filtered against. The set only
+    contains buttons the on-screen touch controls just emitted, so a
+    replay-injected event was silently dropped and the player never
+    moved. Internally the playback cursor was advancing fine, which
+    is why the macro looked alive in the menu but produced zero input
+    in-game -- the "el macro no funciona" symptom users reported.
+  - **The fix:** in `src/playbackmanager.cpp::processCommands` clear
+    `m_allowedButtons` immediately before each replay-driven
+    `handleButton` call, gated on `#ifdef GEODE_IS_MOBILE` so desktop
+    behaviour is untouched. Same one-line guard added to the
+    autoclicker/spammer's `driveButton` path so synthetic spam clicks
+    aren't filtered out either. This is the workaround EclipseMenu
+    uses in `hacks/Bot/Bot.cpp::processBot`, confirmed against the
+    extracted reference archive in `attached_assets/`.
+  - `src/zBot.hpp`: bumped `ZBOT_VERSION` to `v1.5.10`.
+  - `mod.json`: bumped version to `v1.5.10`.
+  - `web/index.html`: bumped version badge + summary copy to v1.5.10.

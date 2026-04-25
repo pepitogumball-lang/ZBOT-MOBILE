@@ -130,6 +130,20 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
             while (m_fields->currIndex < (int)inputs.size() &&
                    inputs[m_fields->currIndex].frame <= frame) {
                 auto& input = inputs[m_fields->currIndex++];
+                // MOBILE FIX: GD's mobile build keeps a per-frame
+                // `m_allowedButtons` set that any `handleButton` call
+                // is filtered against. The set only contains the
+                // buttons the on-screen touch controls just emitted,
+                // so a replay-injected event gets silently dropped
+                // and the player never moves -- the symptom users see
+                // as "el macro no funciona" on Android. Clearing the
+                // set before each injected event neutralises the
+                // filter and lets the playback input through. This is
+                // the same workaround EclipseMenu uses in its bot
+                // module (see hacks/Bot/Bot.cpp::processBot).
+                #ifdef GEODE_IS_MOBILE
+                m_allowedButtons.clear();
+                #endif
                 // this->handleButton goes through the modify chain so
                 // every other handleButton hook (clickbot, recording,
                 // etc.) sees the event. The record hook short-circuits
@@ -242,6 +256,12 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
                     // would skip every other hook and silently break
                     // the spamRecordToMacro flag.
                     mgr->spamSuppressRecord = true;
+                    // Same mobile filter as the playback path above:
+                    // clear the per-frame allowed-buttons set so the
+                    // synthetic spam input isn't dropped on Android.
+                    #ifdef GEODE_IS_MOBILE
+                    m_allowedButtons.clear();
+                    #endif
                     this->handleButton(wantDown, button, !isP2);
                     mgr->spamSuppressRecord = false;
                 };

@@ -9,7 +9,7 @@ using namespace geode::prelude;
 // User-facing mod version. Kept in sync with the `version` field in
 // mod.json — both must say the same vX.Y.Z. The on-disk replay format
 // version is separate and lives in src/replay.hpp.
-#define ZBOT_VERSION "v1.5.9"
+#define ZBOT_VERSION "v1.5.10"
 
 enum zState {
     NONE, RECORD, PLAYBACK
