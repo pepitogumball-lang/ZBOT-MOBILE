@@ -4,6 +4,40 @@ All notable changes to ZBOT-MOBILE are documented here. Versions follow
 the `vX.Y.Z` tag in `mod.json`; each entry corresponds to a GitHub
 Release published by `.github/workflows/build.yml`.
 
+## v1.5.8 — Code cleanup + Frame Advance ergonomics
+
+Bug-fix and quality-of-life pass on top of v1.5.7. No behaviour change
+to recording or playback paths.
+
+### 1. Dead-state cleanup
+
+`src/zBot.hpp` — removed four fields that were declared on the `zBot`
+singleton but never read or written anywhere in the codebase:
+
+- `float extraTPS` — never assigned, never used.
+- `bool disableRender` — never read.
+- `bool ignoreBypass` — never read.
+- `double tps` — overshadowed by `currentReplay->framerate`, which is
+  the canonical source for replay tick rate.
+
+`src/replay.hpp` — removed the unused `#define ZBF_VERSION 3.0f`. The
+on-disk replay format version is the `"1.0.0"` string travelling in
+the `gdr::Replay` constructor; the macro was misleading dead code.
+
+The `frameAdvance` / `doAdvance` / `justLoaded` / `ignoreInput` flags
+that survive the cleanup are now individually documented inline.
+
+### 2. Frame Advance ergonomics
+
+`src/gui.cpp` — `renderHomeTab()`:
+
+- When `Frame Advance` is on, the Home tab now shows a big "Advance 1
+  frame" button right under the status block, plus the live current
+  frame number. No more switching to the Settings tab on every step
+  while the level is frozen.
+- The Frame Advance toggle still lives in `Settings → TAS / debug`
+  (it is the "arm" switch); the Home tab is the "use it" surface.
+
 ## v1.5.7 — Replay accuracy fix + Frame Advance (TAS stepper)
 
 The big one. Two changes that directly target *"the macro replay

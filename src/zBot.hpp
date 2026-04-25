@@ -9,7 +9,7 @@ using namespace geode::prelude;
 // User-facing mod version. Kept in sync with the `version` field in
 // mod.json — both must say the same vX.Y.Z. The on-disk replay format
 // version is separate and lives in src/replay.hpp.
-#define ZBOT_VERSION "v1.5.7"
+#define ZBOT_VERSION "v1.5.8"
 
 enum zState {
     NONE, RECORD, PLAYBACK
@@ -20,14 +20,23 @@ public:
     // ----- Recording / playback state ---------------------------------------
     zState state = NONE;
     bool fmodified = false;
-    float extraTPS = 0.f;
 
-    bool disableRender = false;
-    bool ignoreBypass = false;
+    // Set true by the GUI when arming a fresh replay so any hook can
+    // detect "this is the first playback tick after a load". Consumed
+    // by the playback hook on the first PLAYBACK tick after arming.
     bool justLoaded = false;
+
+    // Global "swallow live input" toggle. Reserved for the legacy mute
+    // path used while a transition is replaying; checked in the
+    // playback hook before calling parent processCommands.
     bool ignoreInput = false;
+
+    // Frame Advance (TAS stepper). When `frameAdvance` is true and the
+    // user is in a level, processCommands skips the parent call —
+    // freezing inputs + physics — until `doAdvance` is set (one tick
+    // per Advance tap). doAdvance is auto-cleared after consumption.
     bool frameAdvance = false;
-    bool doAdvance = false;
+    bool doAdvance    = false;
 
     // Bumped every time playback should restart from the beginning of
     // the macro: when a fresh macro is loaded, when the user re-arms
@@ -44,7 +53,6 @@ public:
     bool speedHackEnabled = false;
     bool speedHackAudio = true;
     double speed = 1.0;
-    double tps = 240.0;
 
     // ----- Misc -------------------------------------------------------------
     bool clickbotEnabled = false;

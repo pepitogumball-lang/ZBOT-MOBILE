@@ -295,6 +295,30 @@ void GUI::renderHomeTab() {
                 ? "Level completed - macro is a perfect run."
                 : "In progress - finish the level for a perfect-run save.");
     }
+
+    // Frame-Advance quick controls. Hoisted onto the Home tab (in
+    // addition to the Settings tab toggle) so the user doesn't have
+    // to pop the panel open, switch tabs, find the button, and tap
+    // it on every step. While Frame Advance is on we ALSO show the
+    // live frame counter regardless of replay state — the user is
+    // most likely staring at the level frozen and wants to see the
+    // exact frame they're on, not just whether playback is in sync.
+    if (mgr->frameAdvance) {
+        ImGui::Spacing();
+        ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.55f, 1.f),
+                           "Frame Advance: ON (level frozen)");
+        auto* pl = PlayLayer::get();
+        if (pl) {
+            int curFrame = static_cast<int>(pl->m_gameState.m_currentProgress);
+            ImGui::Text("Current frame: %d", curFrame);
+        } else {
+            ImGui::TextDisabled("Enter a level to start stepping.");
+        }
+        if (ImGui::Button("Advance 1 frame", ImVec2(-1.f, 44.f))) {
+            mgr->doAdvance = true;
+        }
+        ImGui::TextDisabled("Tip: hold the button to step rapidly.");
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -824,27 +848,6 @@ void GUI::renderSettingsTab() {
     stDirty |= ImGui::Checkbox("Clickbot SFX", &mgr->clickbotEnabled);
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Play a click sound for every input during playback.");
-    }
-
-    ImGui::Spacing();
-    ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "TAS / debug");
-    ImGui::Separator();
-    // Frame Advance: freezes the level (inputs + physics) and only steps
-    // forward one frame at a time when the user taps Advance. Useful for
-    // diagnosing where a macro desyncs, and for hand-crafting frame-perfect
-    // segments. Off by default so casual users never accidentally lock
-    // the game.
-    ImGui::Checkbox("Frame Advance", &mgr->frameAdvance);
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Pause the level and step forward one physics frame\n"
-                          "at a time. While ON the level is frozen until you\n"
-                          "tap the 'Advance' button below.");
-    }
-    if (mgr->frameAdvance) {
-        if (ImGui::Button("Advance 1 frame", ImVec2(-1.f, 36.f))) {
-            mgr->doAdvance = true;
-        }
-        ImGui::TextDisabled("Each tap advances exactly one physics step.");
     }
 
     ImGui::Spacing();

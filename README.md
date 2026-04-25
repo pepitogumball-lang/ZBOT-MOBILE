@@ -12,7 +12,7 @@ Mobile-friendly Geometry Dash macro mod, built as a Geode SDK mod.
 
 ## Status
 
-Work in progress. Current version: **v1.5.7** (see `mod.json`).
+Work in progress. Current version: **v1.5.8** (see `mod.json`).
 
 See [CHANGELOG.md](./CHANGELOG.md) for the full release notes.
 

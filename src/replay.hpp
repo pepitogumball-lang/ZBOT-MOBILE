@@ -17,7 +17,10 @@
 
 using namespace geode::prelude;
 
-#define ZBF_VERSION 3.0f
+// On-disk replay metadata version travels in the gdr::Replay
+// constructor's second argument ("1.0.0" — see zReplay's ctor below).
+// There is no separate ZBF_VERSION constant; bump the string in the
+// ctor when the on-disk schema itself needs to change.
 
 struct zInput : gdr::Input {
     zInput() = default;
