@@ -56,16 +56,33 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
     };
 
     void processCommands(float dt, bool isHalfTick, bool isLastTick) {
-        if (!zBot::get()->ignoreInput) {
-            GJBaseGameLayer::processCommands(dt, isHalfTick, isLastTick);
-        }
-
         zBot* mgr = zBot::get();
+
+        // ---------------------------------------------------------------
+        // Sample the frame number BEFORE the parent call.
+        //
+        // m_gameState.m_currentProgress increments inside processCommands.
+        // Sampling here gives us the frame number the inputs will be
+        // consumed on. This is the same value handleButton sees during
+        // recording (handleButton runs inside processCommands before
+        // physics steps), so record-time frames and playback-time frames
+        // line up exactly.
+        //
+        // Pre-v1.5.7 we sampled this AFTER calling parent processCommands,
+        // which meant every replayed input arrived in GD's input buffer
+        // one tick late. That cumulative 1-frame lag is what made saved
+        // macros desync on playback, especially on fast levels.
+        // ---------------------------------------------------------------
         int frame = static_cast<int>(m_gameState.m_currentProgress);
         auto* pl = PlayLayer::get();
         bool inLevel = pl != nullptr;
 
-        // ---- Playback ------------------------------------------------------
+        // ---- Playback (BEFORE parent dispatch) -----------------------------
+        // Inputs are pushed into GD's input buffer on this tick so that
+        // the parent processCommands call below picks them up and applies
+        // them in the same physics step they were originally recorded on.
+        // This is the matcool/ReplayBot + FigmentBoy/zBot canonical
+        // ordering and is the v1.5.7 fix for replay desync.
         if (mgr->state == PLAYBACK && mgr->currentReplay) {
             // Detect a fresh start: the GUI bumped the epoch (loaded a
             // new macro / hit Replay) or the player swapped the active
@@ -79,6 +96,14 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
                 m_fields->lastReplay    = mgr->currentReplay;
                 m_fields->currIndex     = 0;
                 m_fields->clickBotIndex = 0;
+
+                // The GUI sets `justLoaded = true` when arming a fresh
+                // replay so any hook can detect "this is the first
+                // playback tick after a load". Consume it here so the
+                // flag has a defined lifecycle (true on arm -> false
+                // on first playback tick) and can never silently stay
+                // latched on across later runs.
+                mgr->justLoaded = false;
 
                 // Mid-level join (e.g. user armed Playback during a
                 // checkpoint attempt): fast-forward past inputs that
@@ -130,6 +155,26 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
             // restart on the next tick.
             m_fields->lastEpoch  = mgr->playbackEpoch;
             m_fields->lastReplay = mgr->currentReplay;
+        }
+
+        // ---- Frame-advance gate (TAS stepper) ------------------------------
+        //
+        // When the user toggles `Frame Advance` in the Settings tab,
+        // physics only steps when they explicitly tap the `Advance` button
+        // (which sets `doAdvance` for one tick). Skipping the parent
+        // processCommands freezes the level: inputs are not consumed,
+        // physics does not step. Standard TAS stepper behaviour, lifted
+        // conceptually from Eclipse / xdBot / GDH.
+        //
+        // The pre-existing `ignoreInput` flag is preserved as the global
+        // mute switch.
+        bool runParent = !mgr->ignoreInput;
+        if (mgr->frameAdvance && inLevel) {
+            if (!mgr->doAdvance) runParent = false;
+            mgr->doAdvance = false;
+        }
+        if (runParent) {
+            GJBaseGameLayer::processCommands(dt, isHalfTick, isLastTick);
         }
 
         // ---- Built-in spammer / autoclicker --------------------------------

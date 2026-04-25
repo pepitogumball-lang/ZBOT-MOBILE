@@ -85,6 +85,33 @@ jobs:
           echo "version=$ver" >> "$GITHUB_OUTPUT"
           echo "Releasing as $ver"
 
+      - name: Extract changelog section for this version
+        id: changelog
+        run: |
+          set -e
+          ver="${{ steps.modver.outputs.version }}"
+          if [ ! -f CHANGELOG.md ]; then
+            echo "No CHANGELOG.md, skipping section extraction."
+            echo "body=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Pull lines from "## $ver" up to (but not including) the next "## " heading.
+          section=$(awk -v ver="$ver" '
+            $0 ~ "^## "ver"( |$)" {flag=1; next}
+            flag && /^## / {flag=0}
+            flag {print}
+          ' CHANGELOG.md)
+          if [ -z "$section" ]; then
+            echo "No CHANGELOG section found for $ver."
+            echo "body=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          {
+            echo 'body<<CHANGELOG_EOF'
+            echo "$section"
+            echo 'CHANGELOG_EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
@@ -129,6 +156,8 @@ jobs:
           name: ZBOT-MOBILE ${{ steps.modver.outputs.version }}
           body: |
             Automated Android build of ZBOT-MOBILE ${{ steps.modver.outputs.version }}.
+
+            ${{ steps.changelog.outputs.body }}
 
             **Build:** #${{ github.run_number }}
             **Commit:** ${{ github.sha }}

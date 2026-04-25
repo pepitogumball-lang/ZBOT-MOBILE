@@ -29,6 +29,11 @@ struct zInput : gdr::Input {
 struct zReplay : gdr::Replay<zReplay, zInput> {
     std::string name;
 
+    // The "1.0.0" string here is the on-disk *gdr metadata format*
+    // version embedded in every saved macro — it tracks the replay
+    // schema, NOT the user-facing mod version (see ZBOT_VERSION in
+    // zBot.hpp). Bump only when the on-disk format itself changes in
+    // a way other tools need to detect.
     zReplay() : Replay("zBot-mobile", "1.0.0") {}
 
     static std::filesystem::path macrosDir() {
@@ -129,7 +134,10 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
         inputs = std::move(cleaned);
     }
 
-    void save(int minHoldFrames = 0, int minGapFrames = 0) {
+    // Returns true on a successful, fully-flushed write to disk. The
+    // GUI uses the return value to decide whether to show a "saved"
+    // notification, so a silent disk error never lies to the user.
+    bool save(int minHoldFrames = 0, int minGapFrames = 0) {
         author = GJAccountManager::get()->m_username;
         // Run the clean pass before serialising so saved macros are
         // always tidy regardless of how messy the recording was.
@@ -142,13 +150,38 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
         std::error_code ec;
         if (!std::filesystem::exists(dir, ec)) {
             std::filesystem::create_directories(dir, ec);
+            if (ec) {
+                geode::log::warn("zReplay::save: failed to create dir {}: {}",
+                    dir.string(), ec.message());
+                return false;
+            }
         }
-        std::ofstream f(dir / (name + ".gdr"), std::ios::binary);
+
+        auto path = dir / (name + ".gdr");
+        std::ofstream f(path, std::ios::binary);
+        if (!f.is_open()) {
+            geode::log::warn("zReplay::save: failed to open {} for write",
+                path.string());
+            return false;
+        }
 
         auto data = exportData(false);
-
-        f.write(reinterpret_cast<const char*>(data.data()), data.size());
+        f.write(reinterpret_cast<const char*>(data.data()),
+                static_cast<std::streamsize>(data.size()));
+        if (!f.good()) {
+            geode::log::warn("zReplay::save: write failed for {}", path.string());
+            f.close();
+            return false;
+        }
         f.close();
+        // Final guard: close() can also flag an error if the OS-level
+        // flush fails (e.g. disk full, permission flipped mid-write).
+        if (f.fail()) {
+            geode::log::warn("zReplay::save: close/flush failed for {}",
+                path.string());
+            return false;
+        }
+        return true;
     }
 
     static zReplay* fromFile(const std::string& fileName) {
@@ -163,11 +196,31 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
             }
 
             f.seekg(0, std::ios::end);
-            auto size = f.tellg();
+            auto pos = f.tellg();
             f.seekg(0, std::ios::beg);
 
+            // tellg() returns -1 on stream failure. Without this check
+            // the std::vector<uint8_t>(size) below would be passed an
+            // enormous unsigned value and either OOM or undefined-
+            // behaviour the process. Also clamp to a sane upper bound:
+            // a real macro is well under 64 MB, anything larger is
+            // almost certainly a corrupt or hostile file.
+            constexpr std::streamoff kMaxMacroBytes = 64ll * 1024ll * 1024ll;
+            if (pos < 0 || pos > kMaxMacroBytes) {
+                geode::log::warn("zReplay::fromFile: bad size {} for {}",
+                    static_cast<long long>(pos), fileName);
+                return nullptr;
+            }
+            auto size = static_cast<std::size_t>(pos);
+
             std::vector<uint8_t> data(size);
-            f.read(reinterpret_cast<char*>(data.data()), size);
+            f.read(reinterpret_cast<char*>(data.data()),
+                   static_cast<std::streamsize>(size));
+            if (!f.good() && !f.eof()) {
+                geode::log::warn("zReplay::fromFile: read failed for {}",
+                    fileName);
+                return nullptr;
+            }
             f.close();
 
             zReplay* ret = new zReplay();

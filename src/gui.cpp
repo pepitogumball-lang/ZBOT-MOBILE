@@ -354,21 +354,33 @@ void GUI::renderMacroTab() {
         if (mgr->currentReplay) {
             std::string clean = sanitizeName(mgr->loadName);
             if (!clean.empty()) mgr->currentReplay->name = clean;
-            mgr->currentReplay->save(mgr->minHoldFrames, mgr->minGapFrames);
+            // save() now returns true only when the file was actually
+            // written + flushed. Previously the GUI showed a success
+            // notification unconditionally, which could lie to the user
+            // when the disk write silently failed (permission, no
+            // space, bad path, etc.).
+            bool ok = mgr->currentReplay->save(
+                mgr->minHoldFrames, mgr->minGapFrames);
 
-            // Refresh and auto-select the just-saved macro by name so
-            // the next Replay tap acts on it without a manual scroll.
-            std::string savedName = mgr->currentReplay->name;
-            refreshMacros();
-            selectedMacro = -1;
-            for (int i = 0; i < (int)macros.size(); ++i) {
-                if (macros[i].name == savedName) { selectedMacro = i; break; }
+            if (ok) {
+                // Refresh and auto-select the just-saved macro by name so
+                // the next Replay tap acts on it without a manual scroll.
+                std::string savedName = mgr->currentReplay->name;
+                refreshMacros();
+                selectedMacro = -1;
+                for (int i = 0; i < (int)macros.size(); ++i) {
+                    if (macros[i].name == savedName) { selectedMacro = i; break; }
+                }
+                // Clear any active filter so the new entry isn't hidden
+                // behind a stale search term.
+                macroFilter[0] = '\0';
+
+                Notification::create("Macro saved",
+                    NotificationIcon::Success, 1.0f)->show();
+            } else {
+                Notification::create("Save failed - check storage permission",
+                    NotificationIcon::Error, 2.0f)->show();
             }
-            // Clear any active filter so the new entry isn't hidden
-            // behind a stale search term.
-            macroFilter[0] = '\0';
-
-            Notification::create("Macro saved", NotificationIcon::Success, 1.0f)->show();
         } else {
             Notification::create("Nothing to save", NotificationIcon::Warning, 1.5f)->show();
         }
@@ -547,7 +559,20 @@ void GUI::renderMacroTab() {
             if (mgr->currentReplay) delete mgr->currentReplay;
             mgr->currentReplay = r;
             mgr->state = PLAYBACK;
+            // Force the playback hook to rewind the cursor to frame 0
+            // on the next tick. Without bumping the epoch, currIndex
+            // can stay where the previous arm left it and the macro
+            // appears to "do nothing" — this is the bug that hit on
+            // tablet when entering mid-attempt or when resetLevel()
+            // was not called as expected.
             mgr->requestPlaybackRestart();
+            // Defensive resets: if a previous PLAYBACK left ignoreInput
+            // latched on (e.g. game-side input lock during a transition),
+            // the new macro would arm but every input would be swallowed.
+            // justLoaded tells downstream hooks that this is a fresh
+            // arm, not a continuation of the previous run.
+            mgr->ignoreInput = false;
+            mgr->justLoaded  = true;
             std::strncpy(mgr->loadName, n.c_str(),
                          IM_ARRAYSIZE(mgr->loadName) - 1);
             mgr->loadName[IM_ARRAYSIZE(mgr->loadName) - 1] = '\0';
@@ -799,6 +824,27 @@ void GUI::renderSettingsTab() {
     stDirty |= ImGui::Checkbox("Clickbot SFX", &mgr->clickbotEnabled);
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Play a click sound for every input during playback.");
+    }
+
+    ImGui::Spacing();
+    ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "TAS / debug");
+    ImGui::Separator();
+    // Frame Advance: freezes the level (inputs + physics) and only steps
+    // forward one frame at a time when the user taps Advance. Useful for
+    // diagnosing where a macro desyncs, and for hand-crafting frame-perfect
+    // segments. Off by default so casual users never accidentally lock
+    // the game.
+    ImGui::Checkbox("Frame Advance", &mgr->frameAdvance);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Pause the level and step forward one physics frame\n"
+                          "at a time. While ON the level is frozen until you\n"
+                          "tap the 'Advance' button below.");
+    }
+    if (mgr->frameAdvance) {
+        if (ImGui::Button("Advance 1 frame", ImVec2(-1.f, 36.f))) {
+            mgr->doAdvance = true;
+        }
+        ImGui::TextDisabled("Each tap advances exactly one physics step.");
     }
 
     ImGui::Spacing();

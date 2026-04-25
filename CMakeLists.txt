@@ -31,6 +31,7 @@ set(SOURCES
     src/playbackmanager.cpp
     src/speedhack.cpp
     src/speedhackaudio.cpp
+    src/updatecheck.cpp
 )
 
 # Set up the mod binary

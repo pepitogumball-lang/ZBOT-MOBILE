@@ -6,11 +6,11 @@
     "mac": "2.2081",
     "ios": "2.2081"
   },
-  "version": "v1.5.2",
+  "version": "v1.5.7",
   "id": "pepitogumball.zbot_mobile",
   "name": "ZBOT-MOBILE",
-  "developers": ["pepitogumball", "zilko"],
-  "description": "Mobile-friendly port of zBot (originally by zilko) for Geometry Dash. See CREDITS.md for full attribution.",
+  "developers": ["pepitogumball", "FigmentBoy", "zilko"],
+  "description": "Mobile-friendly port for Geometry Dash. Recording / playback core derived from FigmentBoy's zBot; speedhack and additional behaviour referenced from zilko's xdBot. See CREDITS.md for full attribution.",
   "links": {
     "source": "https://github.com/pepitogumball-lang/ZBOT-MOBILE"
   },
@@ -20,6 +20,13 @@
       "*.png"
     ]
   },
-  "settings": {},
+  "settings": {
+    "disable-update-check": {
+      "type": "bool",
+      "default": false,
+      "name": "Disable update check",
+      "description": "Skip the once-per-launch GitHub Releases check that notifies you when a newer build of ZBOT-MOBILE is available."
+    }
+  },
   "early-load": true
 }
