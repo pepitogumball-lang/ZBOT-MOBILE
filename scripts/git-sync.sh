@@ -50,8 +50,10 @@ echo "[git-sync] === git status ==="
 git status
 
 echo "[git-sync] === unpushed commits (origin/$BRANCH..HEAD) ==="
-git fetch "$REMOTE_NAME" "$BRANCH" --quiet || true
-UNPUSHED="$(git log --oneline "$REMOTE_NAME/$BRANCH..HEAD" || true)"
+if ! git fetch "$REMOTE_NAME" "$BRANCH" --quiet; then
+  echo "[git-sync] WARNING: 'git fetch $REMOTE_NAME $BRANCH' failed; the unpushed-commits view below may be stale." >&2
+fi
+UNPUSHED="$(git log --oneline "$REMOTE_NAME/$BRANCH..HEAD")"
 echo "${UNPUSHED:-<none>}"
 
 # --- 2. Stage & commit (only if there's something to commit) -----------------
