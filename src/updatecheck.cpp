@@ -1,9 +1,11 @@
 #include "zBot.hpp"
 #include <Geode/utils/web.hpp>
 #include <Geode/loader/Mod.hpp>
+#include <Geode/loader/Loader.hpp>
 #include <chrono>
 #include <cstdio>
 #include <string>
+#include <thread>
 
 using namespace geode::prelude;
 
@@ -11,11 +13,12 @@ using namespace geode::prelude;
 // Self-contained "is there a newer release?" check.
 //
 // On mod load:
-//   1. Hit GitHub's Releases API for the upstream repo.
+//   1. Hit GitHub's Releases API for the upstream repo (in a detached
+//      worker thread so we never block the game-load critical path).
 //   2. Parse the `tag_name` field out of the JSON response.
 //   3. Compare it to ZBOT_VERSION.
-//   4. If the remote tag is newer, pop a single Notification telling
-//      the user where to grab it.
+//   4. If the remote tag is newer, hop back to the main thread and
+//      pop a single Notification telling the user where to grab it.
 //
 // Design rules:
 //   - Single shot per launch — no polling, no timers.
@@ -25,6 +28,14 @@ using namespace geode::prelude;
 //   - Every failure path (no network, rate-limited, malformed JSON,
 //     unparseable tag) silently no-ops. The user must never get a
 //     scary error from a background HTTP call.
+//
+// Geode 5.x web API note: the older `EventListener<web::WebTask>`
+// pattern does not exist in Geode 5.6.1 — the namespace exposes
+// `WebRequest`, `WebFuture`, and synchronous `getSync()`. We use the
+// synchronous variant on a detached `std::thread`, then bounce the
+// notification back to the main thread via `Loader::queueInMainThread`
+// because UI calls (Notification::create) must run on the cocos main
+// thread.
 // ---------------------------------------------------------------------------
 
 namespace {
@@ -63,10 +74,6 @@ std::string extractStringField(const std::string& body, const std::string& key) 
     return body.substr(open + 1, close - open - 1);
 }
 
-// Listener has to outlive the WebTask it's bound to, so park it at
-// namespace scope.
-EventListener<web::WebTask> g_updateListener;
-
 } // namespace
 
 $execute {
@@ -76,18 +83,24 @@ $execute {
         return;
     }
 
-    web::WebRequest req;
-    req.userAgent("ZBOT-MOBILE/" ZBOT_VERSION " (+update-check)");
-    req.timeout(std::chrono::seconds(10));
-    req.header("Accept", "application/vnd.github+json");
+    // Detached worker so we never block the game-load critical path.
+    // No captures: everything we need is in static storage already
+    // (kReleasesUrl, ZBOT_VERSION, the helper functions above).
+    std::thread([]{
+        web::WebRequest req;
+        req.userAgent("ZBOT-MOBILE/" ZBOT_VERSION " (+update-check)");
+        req.timeout(std::chrono::seconds(10));
+        req.header("Accept", "application/vnd.github+json");
 
-    g_updateListener.bind([](web::WebTask::Event* e) {
-        auto* res = e->getValue();
-        if (!res) return;
-        if (!res->ok()) return;
+        // Synchronous in this worker thread so we don't have to wire
+        // up a polling loop on cocos's scheduler. Returns a default-
+        // constructed WebResponse on hard failure (DNS, no network,
+        // etc.) — `ok()` will be false, and we silently no-op.
+        web::WebResponse res = req.getSync(kReleasesUrl);
+        if (!res.ok()) return;
 
-        auto body = res->string().unwrapOr("");
-        auto tag  = extractStringField(body, "tag_name");
+        std::string body = res.string().unwrapOr(std::string());
+        std::string tag  = extractStringField(body, "tag_name");
         if (tag.empty()) return;
 
         int latest  = parseSemver(tag);
@@ -100,8 +113,9 @@ $execute {
         // installing a Geode mod is a manual step and we don't want
         // to surprise the user.
         std::string msg = "ZBOT-MOBILE " + tag + " available - check the GitHub releases page";
-        Notification::create(msg.c_str(),
-            NotificationIcon::Info, 5.f)->show();
-    });
-    g_updateListener.setFilter(req.get(kReleasesUrl));
+        Loader::get()->queueInMainThread([msg]() {
+            Notification::create(msg.c_str(),
+                NotificationIcon::Info, 5.f)->show();
+        });
+    }).detach();
 }

@@ -4,6 +4,31 @@ All notable changes to ZBOT-MOBILE are documented here. Versions follow
 the `vX.Y.Z` tag in `mod.json`; each entry corresponds to a GitHub
 Release published by `.github/workflows/build.yml`.
 
+## v1.5.9 — Build fix: update check Geode-5.x web API
+
+`src/updatecheck.cpp` referenced `EventListener<web::WebTask>` and
+`web::WebTask::Event*`, which are the Geode 4.x async-task pattern.
+Geode 5.6.1 (the SDK pinned in this project) does not expose
+`web::WebTask` at all — the web namespace is `WebRequest`,
+`WebFuture`, and synchronous `getSync()` companions. The compile
+error first surfaced now because the local post-commit auto-push
+hook had been silently failing for several releases, so v1.5.5
+(which introduced the update-check) had never actually been built
+in CI until v1.5.7+v1.5.8 were force-pushed manually.
+
+Rewrite using the Geode-5.x pattern:
+
+- A detached `std::thread` runs `req.getSync(...)` so we never block
+  the game-load critical path.
+- The notification UI call hops back to the cocos main thread via
+  `Loader::get()->queueInMainThread([...])`, because
+  `Notification::create` must run on the main thread.
+- All other behaviour (single-shot per launch, opt-out via the
+  `disable-update-check` setting, silent no-op on every failure
+  path) is preserved unchanged.
+
+No source files other than `src/updatecheck.cpp` are touched.
+
 ## v1.5.8 — Code cleanup + Frame Advance ergonomics
 
 Bug-fix and quality-of-life pass on top of v1.5.7. No behaviour change
