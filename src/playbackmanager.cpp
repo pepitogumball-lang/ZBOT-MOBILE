@@ -138,26 +138,29 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
             while (m_fields->currIndex < (int)inputs.size() &&
                    inputs[m_fields->currIndex].frame <= frame) {
                 auto& input = inputs[m_fields->currIndex++];
-                // MOBILE FIX: GD's mobile build keeps a per-frame
-                // `m_allowedButtons` set that any `handleButton` call
-                // is filtered against. The set only contains the
-                // buttons the on-screen touch controls just emitted,
-                // so a replay-injected event gets silently dropped
-                // and the player never moves -- the symptom users see
-                // as "el macro no funciona" on Android. Clearing the
-                // set before each injected event neutralises the
-                // filter and lets the playback input through. This is
-                // the same workaround EclipseMenu uses in its bot
-                // module (see hacks/Bot/Bot.cpp::processBot).
-                #ifdef GEODE_IS_MOBILE
-                m_allowedButtons.clear();
-                #endif
-                // this->handleButton goes through the modify chain so
-                // every other handleButton hook (clickbot, recording,
-                // etc.) sees the event. The record hook short-circuits
-                // when state == PLAYBACK so we don't end up echoing
-                // playback events back into the recording.
-                this->handleButton(input.down, input.button, !input.player2);
+                // EclipseMenu / xdBot / FigmentBoy zBot canonical
+                // playback injection: call the qualified parent
+                // `GJBaseGameLayer::handleButton` so the event goes
+                // STRAIGHT to the engine, bypassing the modify chain
+                // entirely.
+                //
+                // Why not this->handleButton? Routing through the
+                // modify chain means every other handleButton hook
+                // (recording, clickbot, third-party mods) gets a
+                // chance to see -- and on mobile, silently drop --
+                // the synthetic input. GD's mobile build in
+                // particular runs an internal allowed-buttons filter
+                // inside its own handleButton path that eats events
+                // not emitted by the on-screen touch controls, which
+                // is exactly the "macro carga pero el personaje no
+                // hace nada" symptom on Android. The qualified parent
+                // call sidesteps both the modify chain and that
+                // filter. The recording hook does not need to see
+                // playback events anyway -- it short-circuits on
+                // `state != RECORD` -- and the clickbot SFX is
+                // driven by the separate `clickBotIndex` lookahead
+                // below, not by handleButton.
+                GJBaseGameLayer::handleButton(input.down, input.button, !input.player2);
             }
 
             // Tiny lookahead so the click sound effect feels in sync

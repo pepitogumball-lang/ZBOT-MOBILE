@@ -4,6 +4,46 @@ All notable changes to ZBOT-MOBILE are documented here. Versions follow
 the `vX.Y.Z` tag in `mod.json`; each entry corresponds to a GitHub
 Release published by `.github/workflows/build.yml`.
 
+## Unreleased — Mobile playback fix (macro carga pero no hace nada)
+
+Symptom: on Android the macro file loads, the playback state arms, the
+on-screen indicator turns green, but the player never moves. Recording
+worked fine, only playback was silent. Reported as
+"la macro se carga pero el personaje no hace nada".
+
+### Root cause
+
+Two cooperating bugs in `src/playbackmanager.cpp`:
+
+1. Playback was injecting inputs via `this->handleButton(...)`, which
+   walks the Geode modify chain. On mobile, GD's own `handleButton`
+   path runs an internal allowed-buttons filter that drops events not
+   emitted by the on-screen touch controls — so every replay event
+   was getting silently swallowed before reaching `PlayerObject`.
+2. The "mobile workaround" guard meant to neutralise that filter was
+   written as `#ifdef GEODE_IS_MOBILE`, but Geode's actual macro is
+   `GEODE_IS_ANDROID` (used correctly elsewhere, e.g. `replay.hpp`
+   `macrosDir()`). The workaround block therefore never compiled in,
+   and the filter killed playback unimpeded.
+
+### Fix
+
+Switch the playback injection to the canonical EclipseMenu / xdBot /
+FigmentBoy zBot pattern: call the **qualified parent**
+`GJBaseGameLayer::handleButton(...)`. This sends the event straight
+into the engine, bypassing both the modify chain and any
+allowed-buttons filter inside the platform's own handleButton. The
+recording hook does not need to see playback events (it already
+short-circuits on `state != RECORD`), and the clickbot SFX is driven
+by the separate `clickBotIndex` lookahead, so nothing else regresses.
+
+The dead `#ifdef GEODE_IS_MOBILE` block is removed in the playback
+path. The spammer path is intentionally untouched: it still routes
+through `this->handleButton` because the recording hook *does* need
+to see spam events when `spamRecordToMacro` is on.
+
+Files: `src/playbackmanager.cpp` (playback while-loop only).
+
 ## v1.6.0 — Audit sweep vs ReplayBot / zBot / EclipseMenu references
 
 Comparison pass against the three reference projects we credit

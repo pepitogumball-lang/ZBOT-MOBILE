@@ -59,6 +59,17 @@ on every push to `main`. Drop the produced `.geode` file into:
 
 ## Recent changes
 
+- 2026-04-28: Mobile playback fix — the macro loaded on Android but the
+  player did nothing. Two cooperating bugs in `src/playbackmanager.cpp`:
+  playback was injecting via `this->handleButton(...)` (walks the modify
+  chain and gets eaten by GD mobile's allowed-buttons filter), and the
+  guarded workaround used the wrong macro `GEODE_IS_MOBILE` instead of
+  the real Geode `GEODE_IS_ANDROID`, so it never compiled in. Switched
+  the playback injection to the canonical EclipseMenu pattern — qualified
+  parent call `GJBaseGameLayer::handleButton(...)` — and removed the dead
+  `#ifdef` block. Spammer path left untouched (it intentionally routes
+  through the modify chain so recording can capture spam events when
+  `spamRecordToMacro` is on). See CHANGELOG.md "Unreleased" section.
 - 2026-04-24: Imported repo into Replit. Added `web/index.html` and `serve.py`
   to satisfy the Replit workflow requirement with a static info page on
   port 5000.
