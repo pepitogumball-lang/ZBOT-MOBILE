@@ -267,12 +267,11 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
                     // would skip every other hook and silently break
                     // the spamRecordToMacro flag.
                     mgr->spamSuppressRecord = true;
-                    // Same mobile filter as the playback path above:
-                    // clear the per-frame allowed-buttons set so the
-                    // synthetic spam input isn't dropped on Android.
-                    #ifdef GEODE_IS_MOBILE
-                    m_allowedButtons.clear();
-                    #endif
+                    // Spammer routes through `this->handleButton` on
+                    // purpose: the recording hook needs to see spam
+                    // events when `spamRecordToMacro` is on. Playback
+                    // bypasses the chain (qualified parent call above)
+                    // because the recorder doesn't need to see those.
                     this->handleButton(wantDown, button, !isP2);
                     mgr->spamSuppressRecord = false;
                 };

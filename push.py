@@ -5,7 +5,11 @@ import sys
 USER = "pepitogumball-lang"
 REPO = "pepitogumball-lang/ZBOT-MOBILE"
 BRANCH = "main"
-COMMIT_MSG = "Fix macro playback on Android (qualified parent handleButton)"
+COMMIT_MSG = (
+    "Fix macro playback on Android: qualified parent handleButton "
+    "bypasses modify chain + mobile allowed-buttons filter; "
+    "remove dead GEODE_IS_MOBILE typo blocks (real macro is GEODE_IS_ANDROID)"
+)
 
 TOKEN = os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN")
 if not TOKEN:

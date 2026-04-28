@@ -69,7 +69,11 @@ on every push to `main`. Drop the produced `.geode` file into:
   parent call `GJBaseGameLayer::handleButton(...)` — and removed the dead
   `#ifdef` block. Spammer path left untouched (it intentionally routes
   through the modify chain so recording can capture spam events when
-  `spamRecordToMacro` is on). See CHANGELOG.md "Unreleased" section.
+  `spamRecordToMacro` is on). Also removed the duplicate dead `#ifdef
+  GEODE_IS_MOBILE` block in the spammer's emit lambda for the same
+  reason — it was the same typo'd no-op, kept around as confusing
+  dead code. Behavior of the spammer is unchanged. See CHANGELOG.md
+  "Unreleased" section.
 - 2026-04-24: Imported repo into Replit. Added `web/index.html` and `serve.py`
   to satisfy the Replit workflow requirement with a static info page on
   port 5000.

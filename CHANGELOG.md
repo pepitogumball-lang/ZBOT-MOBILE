@@ -38,11 +38,18 @@ short-circuits on `state != RECORD`), and the clickbot SFX is driven
 by the separate `clickBotIndex` lookahead, so nothing else regresses.
 
 The dead `#ifdef GEODE_IS_MOBILE` block is removed in the playback
-path. The spammer path is intentionally untouched: it still routes
-through `this->handleButton` because the recording hook *does* need
-to see spam events when `spamRecordToMacro` is on.
+path. A second copy of the same dead block in the spammer's input
+emit is also removed. The spammer's actual call routing
+(`this->handleButton`) is intentionally untouched: it still goes
+through the modify chain because the recording hook *does* need to
+see spam events when `spamRecordToMacro` is on. If the spammer turns
+out to have the same on-mobile filter problem in practice, the right
+fix there is a separate change (record-side replay capture instead
+of routing through the chain) — not blindly copying the playback
+fix and breaking spam-into-macro recording.
 
-Files: `src/playbackmanager.cpp` (playback while-loop only).
+Files: `src/playbackmanager.cpp` (playback while-loop + dead-code
+cleanup in spammer emit).
 
 ## v1.6.0 — Audit sweep vs ReplayBot / zBot / EclipseMenu references
 
