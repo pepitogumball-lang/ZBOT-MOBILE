@@ -4,7 +4,30 @@ All notable changes to ZBOT-MOBILE are documented here. Versions follow
 the `vX.Y.Z` tag in `mod.json`; each entry corresponds to a GitHub
 Release published by `.github/workflows/build.yml`.
 
-## Unreleased — Mobile playback fix (macro carga pero no hace nada)
+## Unreleased — CI checkout fix + mobile playback fix
+
+### CI: phantom submodule broke `actions/checkout@v4`
+
+Symptom: every push hit "fatal: No url found for submodule path
+'ZBOT-MOBILE' in .gitmodules" at the checkout step, exit code 128,
+and the build was skipped before any C++ was compiled. Workflow
+runs went red without ever invoking the toolchain.
+
+Cause: an accidental nested clone (or a rollback artifact) left a
+`ZBOT-MOBILE/` directory at the repo root with a mode-160000
+gitlink in the index — but no `.gitmodules` to define its URL. The
+checkout action runs `git submodule update --init` recursively, hits
+the orphan gitlink, and dies. Reproduced locally with
+`git submodule status -> "fatal: no submodule mapping found in
+.gitmodules for path 'ZBOT-MOBILE'"`.
+
+Fix: deleted the duplicate `ZBOT-MOBILE/` directory locally and made
+`push.py` run `git rm --cached --ignore-unmatch -rf ZBOT-MOBILE`
+before staging anything. The flag combo is idempotent so re-runs
+after the cleanup are no-ops, and `git add -A` picks up the
+deletion so the index drops the gitlink in the same commit.
+
+## Mobile playback fix (macro carga pero no hace nada)
 
 Symptom: on Android the macro file loads, the playback state arms, the
 on-screen indicator turns green, but the player never moves. Recording
