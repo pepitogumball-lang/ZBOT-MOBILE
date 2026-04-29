@@ -139,27 +139,35 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
                    inputs[m_fields->currIndex].frame <= frame) {
                 auto& input = inputs[m_fields->currIndex++];
                 // EclipseMenu / xdBot / FigmentBoy zBot canonical
-                // playback injection: call the qualified parent
-                // `GJBaseGameLayer::handleButton` so the event goes
-                // STRAIGHT to the engine, bypassing the modify chain
-                // entirely.
+                // playback injection. Two cooperating pieces are
+                // needed to make this work on Android:
                 //
-                // Why not this->handleButton? Routing through the
-                // modify chain means every other handleButton hook
-                // (recording, clickbot, third-party mods) gets a
-                // chance to see -- and on mobile, silently drop --
-                // the synthetic input. GD's mobile build in
-                // particular runs an internal allowed-buttons filter
-                // inside its own handleButton path that eats events
-                // not emitted by the on-screen touch controls, which
-                // is exactly the "macro carga pero el personaje no
-                // hace nada" symptom on Android. The qualified parent
-                // call sidesteps both the modify chain and that
-                // filter. The recording hook does not need to see
-                // playback events anyway -- it short-circuits on
-                // `state != RECORD` -- and the clickbot SFX is
-                // driven by the separate `clickBotIndex` lookahead
-                // below, not by handleButton.
+                // 1) Clear `m_allowedButtons` on mobile before the
+                //    call. GD's mobile build maintains a per-tick
+                //    set of buttons that are "allowed" to be
+                //    processed this tick (populated by the on-screen
+                //    touch controls). `handleButton` consults this
+                //    set FIRST and silently drops any event whose
+                //    button isn't in it -- which is exactly what
+                //    eats every synthetic playback input on Android
+                //    ("macro carga pero el personaje no hace nada").
+                //    EclipseMenu does the same clear in its
+                //    `processBot` (hacks/Bot/Bot.cpp:484-486).
+                //
+                // 2) Call the qualified parent
+                //    `GJBaseGameLayer::handleButton` so the event
+                //    goes STRAIGHT to the engine, bypassing the
+                //    modify chain. Routing through `this->` would
+                //    let every other handleButton hook see (and
+                //    potentially drop) the synthetic input. The
+                //    recording hook doesn't need to see playback
+                //    events anyway -- it short-circuits on
+                //    `state != RECORD` -- and the clickbot SFX is
+                //    driven by the separate `clickBotIndex`
+                //    lookahead below, not by handleButton.
+                #ifdef GEODE_IS_MOBILE
+                m_allowedButtons.clear();
+                #endif
                 GJBaseGameLayer::handleButton(input.down, input.button, !input.player2);
             }
 
@@ -272,6 +280,15 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
                     // events when `spamRecordToMacro` is on. Playback
                     // bypasses the chain (qualified parent call above)
                     // because the recorder doesn't need to see those.
+                    //
+                    // Same Android allowed-buttons workaround as the
+                    // playback path: clear the per-tick set so the
+                    // engine's handleButton doesn't drop our synthetic
+                    // event silently. EclipseMenu uses the same guard
+                    // before its `simulateClick`.
+                    #ifdef GEODE_IS_MOBILE
+                    m_allowedButtons.clear();
+                    #endif
                     this->handleButton(wantDown, button, !isP2);
                     mgr->spamSuppressRecord = false;
                 };
@@ -291,10 +308,16 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
                     if (button < 1 || button > 3) button = 1;
                     mgr->spamSuppressRecord = true;
                     if (m_fields->spamHeld[0]) {
+                        #ifdef GEODE_IS_MOBILE
+                        m_allowedButtons.clear();
+                        #endif
                         this->handleButton(false, button, true);
                         m_fields->spamHeld[0] = false;
                     }
                     if (m_fields->spamHeld[1]) {
+                        #ifdef GEODE_IS_MOBILE
+                        m_allowedButtons.clear();
+                        #endif
                         this->handleButton(false, button, false);
                         m_fields->spamHeld[1] = false;
                     }
@@ -309,10 +332,16 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
             if (button < 1 || button > 3) button = 1;
             mgr->spamSuppressRecord = true;
             if (m_fields->spamHeld[0]) {
+                #ifdef GEODE_IS_MOBILE
+                m_allowedButtons.clear();
+                #endif
                 this->handleButton(false, button, true);
                 m_fields->spamHeld[0] = false;
             }
             if (m_fields->spamHeld[1]) {
+                #ifdef GEODE_IS_MOBILE
+                m_allowedButtons.clear();
+                #endif
                 this->handleButton(false, button, false);
                 m_fields->spamHeld[1] = false;
             }

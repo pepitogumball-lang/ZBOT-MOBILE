@@ -6,9 +6,11 @@ USER = "pepitogumball-lang"
 REPO = "pepitogumball-lang/ZBOT-MOBILE"
 BRANCH = "main"
 COMMIT_MSG = (
-    "Fix macro playback on Android: qualified parent handleButton "
-    "bypasses modify chain + mobile allowed-buttons filter; "
-    "remove dead GEODE_IS_MOBILE typo blocks (real macro is GEODE_IS_ANDROID)"
+    "Fix macro playback on Android (full EclipseMenu pattern): "
+    "clear m_allowedButtons under GEODE_IS_MOBILE + qualified parent "
+    "GJBaseGameLayer::handleButton at all 5 input injection sites "
+    "(playback while-loop + 4 spammer paths). Validated against "
+    "EclipseMenu Bot.cpp:484-486 and zBot playbackmanager.cpp:24."
 )
 
 TOKEN = os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN")

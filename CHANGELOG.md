@@ -13,43 +13,67 @@ worked fine, only playback was silent. Reported as
 
 ### Root cause
 
-Two cooperating bugs in `src/playbackmanager.cpp`:
+Two cooperating issues in `src/playbackmanager.cpp`. Validated against
+the EclipseMenu source (Prevter/EclipseMenu-main) which the user
+provided: see `src/hacks/Bot/Bot.cpp:484-486` for the canonical
+mobile workaround.
 
 1. Playback was injecting inputs via `this->handleButton(...)`, which
-   walks the Geode modify chain. On mobile, GD's own `handleButton`
-   path runs an internal allowed-buttons filter that drops events not
-   emitted by the on-screen touch controls — so every replay event
-   was getting silently swallowed before reaching `PlayerObject`.
-2. The "mobile workaround" guard meant to neutralise that filter was
-   written as `#ifdef GEODE_IS_MOBILE`, but Geode's actual macro is
-   `GEODE_IS_ANDROID` (used correctly elsewhere, e.g. `replay.hpp`
-   `macrosDir()`). The workaround block therefore never compiled in,
-   and the filter killed playback unimpeded.
+   walks the Geode modify chain. The canonical pattern (zBot
+   `playbackmanager.cpp:24`, EclipseMenu `Bot.cpp:508`) is to call
+   the **qualified parent** `GJBaseGameLayer::handleButton(...)`
+   directly so the event goes straight to the engine.
+2. On Android, GD maintains a per-tick set `m_allowedButtons` that
+   the engine's `handleButton` consults FIRST and silently drops
+   any event whose button isn't in it. The set is populated by the
+   on-screen touch controls, so synthetic playback inputs are never
+   in it, and every event gets eaten before reaching `PlayerObject`.
+   EclipseMenu clears this set immediately before each synthetic
+   click (under `#ifdef GEODE_IS_MOBILE`).
+
+### Honest correction of the previous attempt
+
+A first pass at this fix (committed earlier in this branch) claimed
+that `GEODE_IS_MOBILE` was a typo and that only the qualified parent
+call was needed. That was wrong on both counts:
+
+- `GEODE_IS_MOBILE` is a real Geode platform macro, used by
+  EclipseMenu in production. It expands to true on Android and iOS.
+- The qualified parent call alone is **not** enough on Android,
+  because the allowed-buttons filter lives inside the engine's own
+  `handleButton`, not in the modify chain. zBot doesn't hit this
+  because zBot is a desktop-only mod.
+
+This commit applies the EclipseMenu pattern fully: clear
+`m_allowedButtons` AND use the qualified parent call, gated by
+`#ifdef GEODE_IS_MOBILE`.
 
 ### Fix
 
-Switch the playback injection to the canonical EclipseMenu / xdBot /
-FigmentBoy zBot pattern: call the **qualified parent**
-`GJBaseGameLayer::handleButton(...)`. This sends the event straight
-into the engine, bypassing both the modify chain and any
-allowed-buttons filter inside the platform's own handleButton. The
-recording hook does not need to see playback events (it already
-short-circuits on `state != RECORD`), and the clickbot SFX is driven
-by the separate `clickBotIndex` lookahead, so nothing else regresses.
+In every code path that synthesises an input on a `GJBaseGameLayer`:
 
-The dead `#ifdef GEODE_IS_MOBILE` block is removed in the playback
-path. A second copy of the same dead block in the spammer's input
-emit is also removed. The spammer's actual call routing
-(`this->handleButton`) is intentionally untouched: it still goes
-through the modify chain because the recording hook *does* need to
-see spam events when `spamRecordToMacro` is on. If the spammer turns
-out to have the same on-mobile filter problem in practice, the right
-fix there is a separate change (record-side replay capture instead
-of routing through the chain) — not blindly copying the playback
-fix and breaking spam-into-macro recording.
+```cpp
+#ifdef GEODE_IS_MOBILE
+m_allowedButtons.clear();
+#endif
+GJBaseGameLayer::handleButton(down, button, !player2);
+```
 
-Files: `src/playbackmanager.cpp` (playback while-loop + dead-code
-cleanup in spammer emit).
+Five call sites updated:
+- Playback while-loop (qualified parent call).
+- Spammer `driveButton` lambda (routes through `this->handleButton`
+  on purpose so the record hook can capture spam when
+  `spamRecordToMacro` is on).
+- Two spammer release paths (gate-closed + spammer-turned-off).
+
+The clear is gated by `GEODE_IS_MOBILE` so desktop builds are
+unchanged. The recording hook short-circuits on `state != RECORD`,
+so playback events never desync the recorder; the clickbot SFX is
+driven by the separate `clickBotIndex` lookahead, so it's
+unaffected.
+
+Files: `src/playbackmanager.cpp` (playback while-loop + spammer
+emit + 2 release paths).
 
 ## v1.6.0 — Audit sweep vs ReplayBot / zBot / EclipseMenu references
 

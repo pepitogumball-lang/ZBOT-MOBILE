@@ -60,20 +60,26 @@ on every push to `main`. Drop the produced `.geode` file into:
 ## Recent changes
 
 - 2026-04-28: Mobile playback fix — the macro loaded on Android but the
-  player did nothing. Two cooperating bugs in `src/playbackmanager.cpp`:
-  playback was injecting via `this->handleButton(...)` (walks the modify
-  chain and gets eaten by GD mobile's allowed-buttons filter), and the
-  guarded workaround used the wrong macro `GEODE_IS_MOBILE` instead of
-  the real Geode `GEODE_IS_ANDROID`, so it never compiled in. Switched
-  the playback injection to the canonical EclipseMenu pattern — qualified
-  parent call `GJBaseGameLayer::handleButton(...)` — and removed the dead
-  `#ifdef` block. Spammer path left untouched (it intentionally routes
-  through the modify chain so recording can capture spam events when
-  `spamRecordToMacro` is on). Also removed the duplicate dead `#ifdef
-  GEODE_IS_MOBILE` block in the spammer's emit lambda for the same
-  reason — it was the same typo'd no-op, kept around as confusing
-  dead code. Behavior of the spammer is unchanged. See CHANGELOG.md
-  "Unreleased" section.
+  player did nothing. After comparing against the EclipseMenu source
+  the user provided (`src/hacks/Bot/Bot.cpp:484-486`), the canonical
+  Android workaround needs TWO things together, not one:
+  1. Call the qualified parent `GJBaseGameLayer::handleButton(...)`
+     so the event bypasses the Geode modify chain (matches zBot
+     `playbackmanager.cpp:24` and EclipseMenu `Bot.cpp:508`).
+  2. Clear `m_allowedButtons` immediately before each synthetic call,
+     gated by `#ifdef GEODE_IS_MOBILE`. GD mobile keeps a per-tick
+     "allowed buttons" set populated by the on-screen touch controls;
+     the engine's handleButton consults it FIRST and silently drops
+     anything not in it. Synthetic playback inputs are never in the
+     set, so they all get eaten before reaching `PlayerObject`.
+  An earlier pass in this same branch wrongly removed the
+  `m_allowedButtons.clear()` block thinking `GEODE_IS_MOBILE` was a
+  typo; it isn't — it's a real Geode platform macro that EclipseMenu
+  uses in production. That earlier change has been corrected. The
+  clear+qualified-parent-call pattern is now applied at all 5 input
+  injection sites: the playback while-loop and the 4 spammer paths
+  (driveButton + 2× gate-closed release + spammer-off release).
+  See CHANGELOG.md "Unreleased" section for the full writeup.
 - 2026-04-24: Imported repo into Replit. Added `web/index.html` and `serve.py`
   to satisfy the Replit workflow requirement with a static info page on
   port 5000.
