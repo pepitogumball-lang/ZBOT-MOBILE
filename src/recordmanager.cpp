@@ -53,6 +53,11 @@ class $modify(zRecGJBGL, GJBaseGameLayer) {
             static_cast<int>(m_gameState.m_currentProgress) / 2,
             button, p2, down
         );
+
+        ZLOG_INFO("RECORD", (down ? "DOWN " : "UP ") 
+            << (p2 ? "P2" : "P1") 
+            << " | frame=" << (static_cast<int>(m_gameState.m_currentProgress) / 2)
+            << " | btn=" << button);
     }
 };
 
