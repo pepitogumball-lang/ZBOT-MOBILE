@@ -107,7 +107,7 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
                 m_fields->clickBotIndex = 0;
                 mgr->justLoaded = false;
 
-                ZLOG("[PLAYBACK] epoch/replay changed -> cursor reset"
+                ZLOG_INFO("EPOCH", "cursor reset"
                      " | frame=" << frame
                      << " | inLevel=" << inLevel
                      << " | inputs=" << mgr->currentReplay->inputs.size()
@@ -174,7 +174,7 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
                 //    `state != RECORD` -- and the clickbot SFX is
                 //    driven by the separate `clickBotIndex`
                 //    lookahead below, not by handleButton.
-                ZLOG("[PLAYBACK] FIRE input"
+                ZLOG("PLAYBACK", "FIRE"
                      " frame=" << input.frame
                      << " btn=" << input.button
                      << " down=" << input.down
@@ -190,10 +190,13 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
             // Debug: log periodically if we are in playback but firing nothing
             if (frame % 60 == 0) {
                 int remaining = (int)inputs.size() - m_fields->currIndex;
-                ZLOG("[PLAYBACK] tick frame=" << frame
-                     << " cursor=" << m_fields->currIndex
-                     << " total_inputs=" << inputs.size()
-                     << " remaining=" << remaining);
+                auto lvl = (remaining == 0 && !inputs.empty())
+                           ? ZLogLevel::Warn : ZLogLevel::Debug;
+                ZBotLogger::get().log(lvl, "PLAYBACK",
+                    std::string("tick frame=") + std::to_string(frame)
+                    + " cursor=" + std::to_string(m_fields->currIndex)
+                    + "/" + std::to_string((int)inputs.size())
+                    + " remaining=" + std::to_string(remaining));
             }
 
             // Tiny lookahead so the click sound effect feels in sync
