@@ -39,7 +39,7 @@ class $modify(zRecGJBGL, GJBaseGameLayer) {
         // GJBaseGameLayer (e.g. the editor). Treat a missing
         // m_levelSettings as "single-player".
         bool p2 = !p1 && m_levelSettings && m_levelSettings->m_twoPlayerMode
-                  && m_gameState.m_isDualMode;
+                  && this->m_gameState.m_isDualMode;
         if (!shouldRecord(mgr, down, button, p2)) return;
 
         // Record the *real* visual frame number. On GD 2.208/2.2081
@@ -50,7 +50,7 @@ class $modify(zRecGJBGL, GJBaseGameLayer) {
         // (hacks/Bot/Bot.cpp::handleButton) and keeps the saved
         // .gdr `duration` field honest.
         mgr->currentReplay->addInput(
-            static_cast<int>(m_gameState.m_currentProgress) / 2,
+            static_cast<int>(this->m_gameState.m_currentProgress) / 2,
             button, p2, down
         );
 
@@ -108,7 +108,7 @@ class $modify(zRecPL, PlayLayer) {
         //
         // /2 to match the half-tick compensation applied at the
         // record-time addInput call above.
-        int frame = static_cast<int>(m_gameState.m_currentProgress) / 2;
+        int frame = static_cast<int>(this->m_gameState.m_currentProgress) / 2;
         mgr->currentReplay->purgeAfter(frame);
 
         // Re-derive what's actually held at the respawn point from the
@@ -123,7 +123,7 @@ class $modify(zRecPL, PlayLayer) {
         // this, a button held across the death (e.g. the right-arrow
         // on a ship part) would never get released in the macro and
         // dedupe would silently drop the next press.
-        bool dual = m_gameState.m_isDualMode &&
+        bool dual = this->m_gameState.m_isDualMode &&
                     m_levelSettings &&
                     m_levelSettings->m_twoPlayerMode;
 
