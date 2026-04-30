@@ -5,6 +5,7 @@
 #include <Geode/modify/GJBaseGameLayer.hpp>
 #include <Geode/modify/PlayerObject.hpp>
 #include <Geode/ui/Notification.hpp>
+#include "logger.hpp"
 
 using namespace geode::prelude;
 
