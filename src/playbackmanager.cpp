@@ -119,7 +119,15 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
                 // events in a single tick and brick the level. Fresh
                 // starts (frame 0/1) leave the cursor at 0 so frame-0
                 // inputs still play normally.
-                if (frame > 1) {
+                // FIX: only fast-forward on genuine mid-level joins.
+                // GJBaseGameLayer::processCommands runs outside PlayLayer too
+                // (menus, editor) where m_currentProgress is stale/garbage.
+                // Using it as a seek target skips all inputs before the level
+                // starts — root cause of playback doing nothing on Android.
+                bool isMidLevelJoin = inLevel
+                    && pl->m_currentCheckpoint != nullptr
+                    && frame > 1;
+                if (isMidLevelJoin) {
                     auto& inputs = mgr->currentReplay->inputs;
                     while (m_fields->currIndex < (int)inputs.size() &&
                            inputs[m_fields->currIndex].frame < frame) {
