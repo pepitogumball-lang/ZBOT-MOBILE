@@ -50,6 +50,15 @@ public:
     void renderSpeedTab();
     void renderSpamTab();
     void renderSettingsTab();
+    void renderConsoleTab();
+
+    // Console tab state
+    bool   consolePaused    = false;
+    bool   consoleAutoScroll = true;
+    int    consoleMinLevel  = 0; // 0=Debug 1=Info 2=Warn 3=Error
+    char   consoleFilter[64] = "";
+    bool   consoleCopied    = false;
+    float  consoleCopiedTimer = 0.f;
 
     void renderReplayInfo();
     void renderStateSwitcher();
