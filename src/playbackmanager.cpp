@@ -6,6 +6,7 @@
 #include <cocos2d.h>
 #include <cmath>
 #include <algorithm>
+#include "logger.hpp"
 
 using namespace geode::prelude;
 
@@ -104,14 +105,14 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
                 m_fields->lastReplay    = mgr->currentReplay;
                 m_fields->currIndex     = 0;
                 m_fields->clickBotIndex = 0;
-
-                // The GUI sets `justLoaded = true` when arming a fresh
-                // replay so any hook can detect "this is the first
-                // playback tick after a load". Consume it here so the
-                // flag has a defined lifecycle (true on arm -> false
-                // on first playback tick) and can never silently stay
-                // latched on across later runs.
                 mgr->justLoaded = false;
+
+                ZLOG("[PLAYBACK] epoch/replay changed -> cursor reset"
+                     " | frame=" << frame
+                     << " | inLevel=" << inLevel
+                     << " | inputs=" << mgr->currentReplay->inputs.size()
+                     << " | hasCheckpoint=" << (inLevel && pl->m_currentCheckpoint != nullptr)
+                     << " | epoch=" << mgr->playbackEpoch);
 
                 // Mid-level join (e.g. user armed Playback during a
                 // checkpoint attempt): fast-forward past inputs that
@@ -173,10 +174,26 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
                 //    `state != RECORD` -- and the clickbot SFX is
                 //    driven by the separate `clickBotIndex`
                 //    lookahead below, not by handleButton.
+                ZLOG("[PLAYBACK] FIRE input"
+                     " frame=" << input.frame
+                     << " btn=" << input.button
+                     << " down=" << input.down
+                     << " p2=" << input.player2
+                     << " | curFrame=" << frame
+                     << " | idx=" << (m_fields->currIndex-1));
                 #ifdef GEODE_IS_MOBILE
                 m_allowedButtons.clear();
                 #endif
                 GJBaseGameLayer::handleButton(input.down, input.button, !input.player2);
+            }
+
+            // Debug: log periodically if we are in playback but firing nothing
+            if (frame % 60 == 0) {
+                int remaining = (int)inputs.size() - m_fields->currIndex;
+                ZLOG("[PLAYBACK] tick frame=" << frame
+                     << " cursor=" << m_fields->currIndex
+                     << " total_inputs=" << inputs.size()
+                     << " remaining=" << remaining);
             }
 
             // Tiny lookahead so the click sound effect feels in sync
