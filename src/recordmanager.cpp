@@ -11,12 +11,28 @@ using namespace geode::prelude;
 
 // Drop inputs that don't change the held state of (player, button).
 // Returns true if the caller should keep the input.
-static bool shouldRecord(zBot* mgr, bool down, int button, bool p2) {
-    if (!mgr->dedupeInputs) return true;
-    if (button < 1 || button > 7) return true; // exotic, just record it
-    bool& held = p2 ? mgr->p2ButtonHeld[button] : mgr->p1ButtonHeld[button];
-    if (held == down) return false;
-    held = down;
+static int s_lastFrame = -1;
+static bool s_lastDown = false;
+static int s_lastButton = -1;
+static bool s_lastP2 = false;
+
+static bool shouldRecord(zBot* mgr, bool down, int button, bool p2, int frame) {
+    if (frame == s_lastFrame && down == s_lastDown && button == s_lastButton && p2 == s_lastP2) {
+        return false;
+    }
+    
+    if (mgr->dedupeInputs) {
+        if (button >= 1 && button <= 7) {
+            bool& held = p2 ? mgr->p2ButtonHeld[button] : mgr->p1ButtonHeld[button];
+            if (held == down) return false;
+            held = down;
+        }
+    }
+
+    s_lastFrame = frame;
+    s_lastDown = down;
+    s_lastButton = button;
+    s_lastP2 = p2;
     return true;
 }
 
@@ -40,7 +56,8 @@ class $modify(zRecGJBGL, GJBaseGameLayer) {
         // m_levelSettings as "single-player".
         bool p2 = !p1 && m_levelSettings && m_levelSettings->m_twoPlayerMode
                   && this->m_gameState.m_isDualMode;
-        if (!shouldRecord(mgr, down, button, p2)) return;
+        int frame = frame;
+        if (!shouldRecord(mgr, down, button, p2, frame)) return;
 
         // Record the *real* visual frame number. On GD 2.208/2.2081
         // m_gameState.m_currentProgress increments twice per visual
@@ -50,13 +67,13 @@ class $modify(zRecGJBGL, GJBaseGameLayer) {
         // (hacks/Bot/Bot.cpp::handleButton) and keeps the saved
         // .gdr `duration` field honest.
         mgr->currentReplay->addInput(
-            static_cast<int>(this->m_gameState.m_currentProgress) / 2,
+            frame,
             button, p2, down
         );
 
         ZLOG_INFO("RECORD", (down ? "DOWN " : "UP ") 
             << (p2 ? "P2" : "P1") 
-            << " | frame=" << (static_cast<int>(this->m_gameState.m_currentProgress) / 2)
+            << " | frame=" << (frame)
             << " | btn=" << button);
     }
 };
@@ -108,7 +125,7 @@ class $modify(zRecPL, PlayLayer) {
         //
         // /2 to match the half-tick compensation applied at the
         // record-time addInput call above.
-        int frame = static_cast<int>(this->m_gameState.m_currentProgress) / 2;
+        int frame = frame;
         mgr->currentReplay->purgeAfter(frame);
 
         // Re-derive what's actually held at the respawn point from the
