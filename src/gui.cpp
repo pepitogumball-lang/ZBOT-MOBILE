@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstring>
 #include <cstdio>
+#include "logger.hpp"
 
 using namespace geode::prelude;
 
@@ -943,6 +944,25 @@ void GUI::renderMainPanel() {
         ImGui::SameLine();
         ImGui::TextColored(ImVec4(0.75f, 0.6f, 1.f, 1.f),
                            "spam %.1f cps", mgr->spamCPS);
+    }
+
+    // ---- Debug Log ------------------------------------------------
+    if (ImGui::CollapsingHeader("Debug Log")) {
+        auto logContents = ZBotLogger::get().contents();
+        ImGui::InputTextMultiline(
+            "##zlog",
+            const_cast<char*>(logContents.c_str()),
+            logContents.size() + 1,
+            ImVec2(-1, 180),
+            ImGuiInputTextFlags_ReadOnly
+        );
+        if (ImGui::Button("Copy Log")) {
+            ImGui::SetClipboardText(logContents.c_str());
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Clear Log")) {
+            ZBotLogger::get().clear();
+        }
     }
 
     ImGui::End();
