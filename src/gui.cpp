@@ -867,6 +867,114 @@ void GUI::renderSettingsTab() {
     if (stDirty) mgr->saveSettings();
 }
 
+
+// ---------------------------------------------------------------------------
+// Console tab — Samsung Galaxy Tab A8 SM-X200 friendly debug console
+// Shows structured ZLogEntry lines with colour coding, filter, auto-scroll.
+// ---------------------------------------------------------------------------
+void GUI::renderConsoleTab() {
+    // ---- Top toolbar -------------------------------------------------------
+    ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "Console");
+    ImGui::SameLine();
+
+    // Level filter combo
+    const char* levels[] = { "ALL", "INFO+", "WARN+", "ERROR" };
+    ImGui::SetNextItemWidth(90.f);
+    ImGui::Combo("##lvl", &consoleMinLevel, levels, IM_ARRAYSIZE(levels));
+    ImGui::SameLine();
+
+    // Text filter
+    ImGui::SetNextItemWidth(120.f);
+    ImGui::InputText("##filter", consoleFilter, sizeof(consoleFilter));
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Filter by tag or text");
+    ImGui::SameLine();
+
+    // Pause / Resume
+    if (ImGui::Button(consolePaused ? "Resume" : "Pause", ImVec2(60.f, 0.f)))
+        consolePaused = !consolePaused;
+    ImGui::SameLine();
+
+    // Clear
+    if (ImGui::Button("Clear", ImVec2(50.f, 0.f)))
+        ZBotLogger::get().clear();
+    ImGui::SameLine();
+
+    // Auto-scroll checkbox
+    ImGui::Checkbox("Auto", &consoleAutoScroll);
+    ImGui::Separator();
+
+    // ---- Log lines ---------------------------------------------------------
+    auto entries = ZBotLogger::get().snapshot();
+    std::string filterStr(consoleFilter);
+
+    // Colour table indexed by ZLogLevel
+    ImVec4 colDebug = ImVec4(0.55f, 0.55f, 0.65f, 1.f);  // grey
+    ImVec4 colInfo  = ImVec4(0.85f, 0.85f, 0.90f, 1.f);  // white
+    ImVec4 colWarn  = ImVec4(1.00f, 0.85f, 0.30f, 1.f);  // yellow
+    ImVec4 colError = ImVec4(1.00f, 0.35f, 0.35f, 1.f);  // red
+    // Tag-specific overrides
+    auto tagColor = [&](const ZLogEntry& e) -> ImVec4 {
+        if (e.tag == "RECORD")   return ImVec4(0.40f, 1.00f, 0.55f, 1.f); // green
+        if (e.tag == "PLAYBACK") return ImVec4(0.35f, 0.90f, 1.00f, 1.f); // cyan
+        if (e.tag == "EPOCH")    return ImVec4(0.85f, 0.60f, 1.00f, 1.f); // violet
+        if (e.level == ZLogLevel::Warn)  return colWarn;
+        if (e.level == ZLogLevel::Error) return colError;
+        if (e.level == ZLogLevel::Debug) return colDebug;
+        return colInfo;
+    };
+
+    // Scrollable child region — leaves room for the Copy button below
+    float footerH = 44.f;
+    ImGui::BeginChild("##consolescroll",
+                      ImVec2(0.f, -footerH),
+                      false,
+                      ImGuiWindowFlags_HorizontalScrollbar);
+
+    for (auto& e : entries) {
+        // Level filter
+        if ((int)e.level < consoleMinLevel) continue;
+        // Text filter (case-insensitive substring on full line)
+        if (!filterStr.empty()) {
+            std::string hay = e.full;
+            std::string needle = filterStr;
+            // tolower both
+            for (auto& c : hay)    c = (char)tolower((unsigned char)c);
+            for (auto& c : needle) c = (char)tolower((unsigned char)c);
+            if (hay.find(needle) == std::string::npos) continue;
+        }
+        ImGui::TextColored(tagColor(e), "%s", e.full.c_str());
+    }
+
+    // Auto-scroll: only scroll when new content arrives or user toggled it
+    if (consoleAutoScroll && !consolePaused)
+        ImGui::SetScrollHereY(1.0f);
+
+    ImGui::EndChild();
+
+    // ---- Footer: big Copy button (touch-friendly for Tab A8) ---------------
+    ImGui::Separator();
+
+    // Flash "Copied!" for 1.5 s after copy
+    if (consoleCopied) {
+        consoleCopiedTimer -= ImGui::GetIO().DeltaTime;
+        if (consoleCopiedTimer <= 0.f) consoleCopied = false;
+    }
+
+    ImVec2 btnSize = ImVec2(ImGui::GetContentRegionAvail().x, 36.f);
+    if (consoleCopied) {
+        ImGui::PushStyleColor(ImGuiCol_Button,
+                              ImVec4(0.2f, 0.75f, 0.35f, 1.f));
+        if (ImGui::Button("Copied! Paste to Zapia :)", btnSize)) {}
+        ImGui::PopStyleColor();
+    } else {
+        if (ImGui::Button("Copy all logs to clipboard", btnSize)) {
+            ImGui::SetClipboardText(ZBotLogger::get().allText().c_str());
+            consoleCopied     = true;
+            consoleCopiedTimer = 1.5f;
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Main panel
 // ---------------------------------------------------------------------------
@@ -911,6 +1019,10 @@ void GUI::renderMainPanel() {
             renderSettingsTab();
             ImGui::EndTabItem();
         }
+        if (ImGui::BeginTabItem("Console")) {
+            renderConsoleTab();
+            ImGui::EndTabItem();
+        }
         ImGui::EndTabBar();
     }
 
@@ -944,25 +1056,6 @@ void GUI::renderMainPanel() {
         ImGui::SameLine();
         ImGui::TextColored(ImVec4(0.75f, 0.6f, 1.f, 1.f),
                            "spam %.1f cps", mgr->spamCPS);
-    }
-
-    // ---- Debug Log ------------------------------------------------
-    if (ImGui::CollapsingHeader("Debug Log")) {
-        auto logContents = ZBotLogger::get().contents();
-        ImGui::InputTextMultiline(
-            "##zlog",
-            const_cast<char*>(logContents.c_str()),
-            logContents.size() + 1,
-            ImVec2(-1, 180),
-            ImGuiInputTextFlags_ReadOnly
-        );
-        if (ImGui::Button("Copy Log")) {
-            ImGui::SetClipboardText(logContents.c_str());
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Clear Log")) {
-            ZBotLogger::get().clear();
-        }
     }
 
     ImGui::End();
