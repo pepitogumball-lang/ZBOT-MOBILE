@@ -66,12 +66,13 @@ class $modify(zRecGJBGL, GJBaseGameLayer) {
         // for symmetry. This matches EclipseMenu's bot module
         // (hacks/Bot/Bot.cpp::handleButton) and keeps the saved
         // .gdr `duration` field honest.
+        // Using raw game progress for Bloodbath-level precision
         mgr->currentReplay->addInput(
             frame,
             button, p2, down
         );
 
-        ZLOG_INFO("RECORD", (down ? "DOWN " : "UP ") 
+        ZLOG_INFO("RECORD", (down ? "◢" : "◤") 
             << (p2 ? "P2" : "P1") 
             << " | frame=" << (frame)
             << " | btn=" << button);
@@ -147,7 +148,8 @@ class $modify(zRecPL, PlayLayer) {
         auto releaseAllHeld = [&](bool* held, bool p2) {
             for (int b = 1; b <= 7; ++b) {
                 if (!held[b]) continue;
-                mgr->currentReplay->addInput(frame, b, p2, false);
+                // Using raw game progress for Bloodbath-level precision
+        mgr->currentReplay->addInput(frame, b, p2, false);
                 held[b] = false;
             }
         };
