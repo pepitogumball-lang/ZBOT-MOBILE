@@ -174,7 +174,7 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
                 //    `state != RECORD` -- and the clickbot SFX is
                 //    driven by the separate `clickBotIndex`
                 //    lookahead below, not by handleButton.
-                ZLOG("PLAYBACK", "FIRE"
+                ZLOG_INFO("PLAYBACK", "FIRE"
                      " frame=" << input.frame
                      << " btn=" << input.button
                      << " down=" << input.down
