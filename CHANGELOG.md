@@ -1,4 +1,10 @@
-# Cambios del ZBot
+# Cambios de G-Macro Android
+
+### v1.7.0
+* Renombrado el proyecto a G-Macro Android.
+* Actualizada la identidad del mod y el ID interno para evitar conflictos.
+* Limpieza general de código y profesionalización de comentarios.
+* Mejora en la transparencia de créditos técnicos.
 
 ### v1.6.1
 * Arreglado un bug tonto con los frames que hacía que a veces no grabara nada.

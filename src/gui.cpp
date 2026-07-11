@@ -182,7 +182,7 @@ void GUI::renderFloatingBall() {
   dl->AddText(ImVec2(center.x - ts.x * 0.5f, center.y - ts.y * 0.5f),
         IM_COL32(255, 255, 255, 255), label);
 
-  zBot* mgr = zBot::get();
+  GMacro* mgr = GMacro::get();
   if (mgr->state == RECORD) {
     dl->AddCircleFilled(ImVec2(center.x + kBallRadius * 0.65f,
                   center.y - kBallRadius * 0.65f),
@@ -205,9 +205,9 @@ void GUI::renderFloatingBall() {
 
 //
 //
-// falta limpiar esto un poco
+// UI helper
 void GUI::renderReplayInfo() {
-  zBot* mgr = zBot::get();
+  GMacro* mgr = GMacro::get();
   if (mgr->currentReplay) {
     ImGui::Text("Replay: %s", mgr->currentReplay->name.c_str());
     ImGui::Text("Inputs: %zu TPS: %.0f Duration: %.2fs",
@@ -222,9 +222,9 @@ void GUI::renderReplayInfo() {
   }
 }
 
-// funciona? si
+// Status check
 void GUI::renderStateSwitcher() {
-  zBot* mgr = zBot::get();
+  GMacro* mgr = GMacro::get();
   int currentState = (int)mgr->state;
 
   if (ImGui::RadioButton("Idle", &currentState, NONE)) mgr->state = NONE;
@@ -248,10 +248,10 @@ void GUI::renderStateSwitcher() {
 
 //
 //
-// falta limpiar esto un poco
+// UI helper
 // Aqui es donde se ve todo el tinglado
 void GUI::renderHomeTab() {
-  zBot* mgr = zBot::get();
+  GMacro* mgr = GMacro::get();
 
   ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "Status");
   ImGui::Separator();
@@ -328,9 +328,9 @@ static std::string fmtDate(std::time_t t) {
   return std::string(buf);
 }
 
-// funciona? si
+// Status check
 void GUI::renderMacroTab() {
-  zBot* mgr = zBot::get();
+  GMacro* mgr = GMacro::get();
 
   if (macrosDirty) refreshMacros();
 
@@ -569,7 +569,7 @@ void GUI::renderMacroTab() {
 //
 //
 void GUI::renderSpeedTab() {
-  zBot* mgr = zBot::get();
+  GMacro* mgr = GMacro::get();
 
   ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "Speedhack (clock)");
   ImGui::Separator();
@@ -639,9 +639,9 @@ void GUI::renderSpeedTab() {
 
 //
 //
-// no tocar, magia negra
+// Internal logic
 void GUI::renderSpamTab() {
-  zBot* mgr = zBot::get();
+  GMacro* mgr = GMacro::get();
 
   ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "Spam / autoclicker");
   ImGui::Separator();
@@ -742,13 +742,13 @@ void GUI::renderSpamTab() {
 
 //
 //
-// arreglado lo del bug raro
+// Stability fix
 void GUI::renderSettingsTab() {
-  zBot* mgr = zBot::get();
+  GMacro* mgr = GMacro::get();
 
   ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "Safety");
   ImGui::Separator();
-// funciona? si
+// Status check
   bool stDirty = false;
   stDirty |= ImGui::Checkbox("Safe mode (anti-ban)", &mgr->autoSafeMode);
   if (ImGui::IsItemHovered()) {
@@ -770,11 +770,11 @@ void GUI::renderSettingsTab() {
   ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "About");
   ImGui::Separator();
   ImGui::TextWrapped(
-    "ZBOT-MOBILE %s\n"
-    "Grabacion, playback, speedhack y spam para Android.\n"
-    "Hecho por pepitogumball, Alberto, Maria y Richi.\n"
-    "Inspirado en zBot, xdBot y ReplayBot.",
-    ZBOT_VERSION);
+    "G-Macro Android %s\n"
+    "Grabación, playback, speedhack y spam para Android.\n"
+    "Desarrollado por pepitogumball, Alberto Cruz y María López.\n"
+    "Utiliza libGDR para compatibilidad de macros.",
+    GMACRO_VERSION);
   ImGui::TextDisabled("Tip: arrastra la bolita Z para moverla; toca para abrir/cerrar.");
 
   if (stDirty) mgr->saveSettings();
@@ -886,13 +886,13 @@ void GUI::renderMainPanel() {
   ImGui::SetNextWindowSize(ImVec2(460, 600), ImGuiCond_Once);
   ImGui::SetNextWindowSizeConstraints(ImVec2(360, 400), ImVec2(900, 1400));
 
-  if (!ImGui::Begin("ZBOT-MOBILE", &visible)) {
+  if (!ImGui::Begin("G-Macro Android", &visible)) {
     ImGui::End();
     return;
   }
 
   ImGui::TextColored(ImVec4(0.85f, 0.78f, 1.0f, 1.f),
-            "ZBOT-MOBILE %s", ZBOT_VERSION);
+            "G-Macro Android %s", GMACRO_VERSION);
   ImGui::SameLine(ImGui::GetWindowWidth() - 56.f);
   if (ImGui::Button("X", ImVec2(36.f, 26.f))) {
     visible = false;
@@ -928,7 +928,7 @@ void GUI::renderMainPanel() {
   }
 
   ImGui::Separator();
-  zBot* mgr = zBot::get();
+  GMacro* mgr = GMacro::get();
   const char* stateLabel =
     mgr->state == RECORD  ? "RECORDING" :
     mgr->state == PLAYBACK ? "PLAYBACK" :
@@ -965,7 +965,7 @@ void GUI::renderMainPanel() {
 // Top-level renderer
 //
 //
-// arreglado lo del bug raro
+// Stability fix
 void GUI::renderer() {
   renderFloatingBall();
   if (visible) renderMainPanel();
@@ -974,14 +974,14 @@ void GUI::renderer() {
 void GUI::setup() {
   applyTheme();
 
-  zBot::get()->loadSettings();
+  GMacro::get()->loadSettings();
 
   auto m = Mod::get();
   ballPos.x = static_cast<float>(m->getSavedValue<double>("ballPosX", ballPos.x));
   ballPos.y = static_cast<float>(m->getSavedValue<double>("ballPosY", ballPos.y));
 }
 
-// esto lo hizo Alberto a las 3 am
+// UI Implementation by Alberto Cruz
 class $modify(zLoadingLayer, LoadingLayer) {
   bool init(bool fromReload) {
     if (!LoadingLayer::init(fromReload)) return false;

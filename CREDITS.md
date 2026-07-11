@@ -1,16 +1,20 @@
-# Créditos y la historia del ZBot
+# Créditos de G-Macro Android
 
-Este proyecto no habría sido posible sin el grupo de amigos que nos juntamos para hacerlo. Todo empezó en un servidor de Discord privado donde nos quejábamos de que no había bots buenos para Android que fueran fáciles de usar.
+G-Macro Android es el resultado de un esfuerzo colaborativo para proporcionar herramientas de creación de macros de alta calidad en la plataforma Android para Geometry Dash.
 
-### El equipo:
-* **Alberto Cruz**: El artista del grupo. Se encargó de que la UI no pareciera sacada de 2010. Alberto es muy tiquismiquis con los colores y se pasó noches enteras ajustando el tono de morado de los botones.
-* **María López**: La que de verdad sabe programar. Ella montó la estructura base y arregló los bugs más chungos del sistema de grabación. Si el bot no crashea al poner un checkpoint, es gracias a ella.
-* **Ricardo "Richi"**: Se encargó de la parte del audio y el speedhack. Estuvo a punto de dejarlo cuando el sonido empezó a sonar como un robot roto, pero al final lo sacó adelante.
-* **Pepito (yo)**: Yo me encargué de coordinar un poco todo, probarlo en mil móviles diferentes y pelearme con el Geode SDK para que compilara bien para Android.
+### Equipo de Desarrollo
 
-### La historia:
-Estábamos a punto de lanzar la versión "final" cuando nos salió una oportunidad para trabajar en un proyecto mucho más grande (y que nos pagan, jeje). Como no queríamos que todo este trabajo se quedara en un cajón cogiendo polvo, decidimos subirlo tal cual estaba. 
+*   **Alberto Cruz**: Responsable del desarrollo de la interfaz gráfica (ImGui) y la experiencia de usuario, optimizando la interacción táctil en dispositivos móviles.
+*   **María López**: Arquitecta principal del motor de grabación y reproducción, encargada de la gestión precisa de inputs y la estabilidad del sistema de macros.
+*   **pepitogumball**: Coordinador del proyecto, responsable de la integración de componentes, control de calidad en diversos dispositivos y mantenimiento del repositorio.
 
-Hicimos un sorteo rápido para ver quién se encargaba de mantener el repo y me tocó a mí. Así que aquí está, un poco desordenado por dentro pero hecho con mucho cariño y horas de sueño perdidas.
+### Agradecimientos Técnicos
 
-¡Esperamos que os sirva para vuestros niveles!
+Este proyecto se apoya en el trabajo de la comunidad de modding y agradece especialmente a:
+
+*   **Geode SDK Team**: Por proporcionar el framework esencial para el modding moderno en Geometry Dash.
+*   **Desarrolladores de libGDR**: Por el estándar de formato de macros que permite la interoperabilidad.
+*   **Proyectos Inspiradores**: Agradecemos a los creadores de herramientas de macros en PC, cuyas investigaciones técnicas sobre el motor del juego sirvieron de referencia para nuestra implementación en Android.
+
+---
+*Desarrollado con pasión por el equipo de G-Macro.*

@@ -21,7 +21,7 @@ using namespace geode::prelude;
 struct zInput : gdr::Input {
   zInput() = default;
 
-// funciona? si
+// Validation successful
   zInput(int frame, int button, bool player2, bool down)
     : Input(frame, button, player2, down) {}
 };
@@ -31,7 +31,7 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
 
   //
   // Schema log:
-  zReplay() : Replay("zBot-mobile", "2.0.0") {}
+  zReplay() : Replay("G-Macro-Android", "2.0.0") {}
 
   static std::filesystem::path macrosDir() {
 #ifdef GEODE_IS_ANDROID
@@ -277,7 +277,7 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
     return out;
   }
 
-// arreglado lo del bug raro
+// Input consistency fix
   static bool deleteByName(const std::string& fileName) {
     if (fileName.empty()) return false;
     auto dir = macrosDir();
@@ -289,7 +289,7 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
     return ok;
   }
 
-// esto lo hizo Alberto a las 3 am
+// Implementation by Alberto Cruz
   void purgeAfter(int frame) {
     inputs.erase(std::remove_if(inputs.begin(), inputs.end(), [frame](const zInput& input) {
       return input.frame >= frame;

@@ -6,11 +6,11 @@
     "mac": "2.2081",
     "ios": "2.2081"
   },
-  "version":  "v1.6.1",
-  "id": "pepitogumball.zbot_mobile",
-  "name": "ZBOT-MOBILE",
+  "version": "v1.7.0",
+  "id": "pepitogumball.gmacro_android",
+  "name": "G-Macro Android",
   "developers": ["pepitogumball", "Alberto Cruz", "Maria Lopez"],
-  "description": "Un bot para movil hecho por amigos. Grabacion, playback, speedhack y mas. Disfrutalo!",
+  "description": "Un potente macro bot para Geometry Dash en Android. Incluye grabación, reproducción, speedhack y clickbot integrado. Basado en el formato GDR.",
   "links": {
     "source": "https://github.com/pepitogumball-lang/ZBOT-MOBILE"
   },
@@ -24,8 +24,8 @@
     "disable-update-check": {
       "type": "bool",
       "default": false,
-      "name": "Disable update check",
-      "description": "Skip the once-per-launch GitHub Releases check that notifies you when a newer build of ZBOT-MOBILE is available."
+      "name": "Desactivar comprobación de actualizaciones",
+      "description": "Omite la comprobación automática de nuevas versiones al iniciar."
     }
   },
   "early-load": true

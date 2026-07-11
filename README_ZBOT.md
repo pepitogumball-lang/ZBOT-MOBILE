@@ -1,16 +1,19 @@
-# ZBOT-MOBILE
+# G-Macro Android
 
-Hola! Este es un proyecto que empezamos entre varios amigos hace un tiempo. Queríamos tener un bot decente para móvil que no fuera un lío de usar. 
+G-Macro Android es un macro bot avanzado diseñado específicamente para Geometry Dash en dispositivos Android, utilizando el Geode SDK.
 
-Al final nos hemos liado con otros proyectos más grandes y hemos decidido subirlo ya para que la gente lo pruebe. Me ha tocado a mí subir el repo a última hora así que igual hay alguna cosa un poco desordenada, pero funciona de lujo.
+### Características Principales:
+* **Grabación y Playback**: Soporte completo para macros en formato GDR.
+* **Speedhack**: Control preciso de la velocidad del juego con ajuste de audio sincronizado.
+* **Spam / Autoclicker**: Configurable por jugador y botón.
+* **Interfaz ImGui**: Diseño optimizado para pantallas táctiles con bola flotante interactiva.
 
-### Créditos del equipo:
-* **Alberto Cruz**: Se pegó una buena currada con todo el diseño de la UI y que la bolita flotante no molestara.
-* **María López**: La jefa del código, montó casi toda la lógica de grabación y playback.
-* **Ricardo "Richi"**: El que se peleó con el speedhack y el audio para que no sonara raro.
-* **Yo (Pepito)**: Me encargué de juntar todo, arreglar bugs de última hora y subirlo aquí.
+### Créditos y Desarrollo:
+* **Alberto Cruz**: Diseño de Interfaz de Usuario (UI/UX).
+* **María López**: Lógica de grabación y gestión de inputs.
+* **pepitogumball**: Integración, mantenimiento y distribución.
 
-También gracias a la gente de Geode y otros proyectos de bots que nos sirvieron de referencia al principio para entender cómo iba el tema en Android.
+Este proyecto utiliza **libGDR** para la gestión de archivos de macro y **imgui-cocos** para la interfaz gráfica. Agradecemos a la comunidad de Geode por las herramientas y documentación proporcionadas.
 
 ### Cómo va la cosa:
 Es un mod de Geode, así que lo instalas normal. Dentro del juego te sale el menú y puedes grabar tus macros. Lo hemos probado en varios móviles y va bastante fino.

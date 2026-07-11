@@ -4,7 +4,7 @@
 //
 // emission. We:
 //
-void zBot::playSound(bool /*p2*/, int /*button*/, bool down) {
+void GMacro::playSound(bool /*p2*/, int /*button*/, bool down) {
   if (!down) return;
 
   auto* engine = FMODAudioEngine::sharedEngine();

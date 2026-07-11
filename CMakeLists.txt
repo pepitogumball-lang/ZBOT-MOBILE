@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(ZBOT_MOBILE LANGUAGES CXX)
+project(GMACRO_ANDROID LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -31,7 +31,7 @@ set(SOURCES
     src/updatecheck.cpp
 )
 
-add_library(ZBOT_MOBILE SHARED ${SOURCES})
+add_library(GMACRO_ANDROID SHARED ${SOURCES})
 
 if (NOT DEFINED ENV{GEODE_SDK})
     message(FATAL_ERROR "No se encuentra el Geode SDK")
@@ -39,13 +39,13 @@ endif()
 
 add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
 
-target_link_libraries(ZBOT_MOBILE libGDR imgui-cocos)
+target_link_libraries(GMACRO_ANDROID libGDR imgui-cocos)
 
 if (libGDR_SOURCE_DIR)
-    target_include_directories(ZBOT_MOBILE PRIVATE "${libGDR_SOURCE_DIR}/include")
+    target_include_directories(GMACRO_ANDROID PRIVATE "${libGDR_SOURCE_DIR}/include")
 endif()
 if (imgui-cocos_SOURCE_DIR)
-    target_include_directories(ZBOT_MOBILE PRIVATE "${imgui-cocos_SOURCE_DIR}/include")
+    target_include_directories(GMACRO_ANDROID PRIVATE "${imgui-cocos_SOURCE_DIR}/include")
 endif()
 
-setup_geode_mod(ZBOT_MOBILE)
+setup_geode_mod(GMACRO_ANDROID)

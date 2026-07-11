@@ -20,7 +20,7 @@ using namespace geode::prelude;
 namespace {
 
 constexpr const char* kReleasesUrl =
-  "https://api.github.com/repos/pepitogumball-lang/ZBOT-MOBILE/releases/latest";
+  "https://api.github.com/repos/pepitogumball-lang/ZBOT-MOBILE/releases/latest"; // Mantener por ahora hasta que el repo se renombre
 
 int parseSemver(const std::string& raw) {
   std::string s = raw;
@@ -57,7 +57,7 @@ $execute {
 
   std::thread([]{
     web::WebRequest req;
-    req.userAgent("ZBOT-MOBILE/" ZBOT_VERSION " (+update-check)");
+    req.userAgent("GMACRO-ANDROID/" GMACRO_VERSION " (+update-check)");
     req.timeout(std::chrono::seconds(10));
     req.header("Accept", "application/vnd.github+json");
 
@@ -69,11 +69,11 @@ $execute {
     if (tag.empty()) return;
 
     int latest = parseSemver(tag);
-    int current = parseSemver(ZBOT_VERSION);
+    int current = parseSemver(GMACRO_VERSION);
     if (latest <= 0 || current <= 0) return;
     if (latest <= current) return;
 
-    std::string msg = "ZBOT-MOBILE " + tag + " disponible - mira las releases en GitHub";
+    std::string msg = "G-Macro Android " + tag + " disponible - mira las actualizaciones en GitHub";
     Loader::get()->queueInMainThread([msg]() {
       Notification::create(msg.c_str(),
         NotificationIcon::Info, 5.f)->show();

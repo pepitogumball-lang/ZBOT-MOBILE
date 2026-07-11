@@ -1,7 +1,7 @@
 #ifndef _zbot_hpp
 #define _zbot_hpp
 
-#define ZBOT_VERSION "v1.6.1"
+#define GMACRO_VERSION "v1.7.0"
 
 #include <Geode/Geode.hpp>
 #include "replay.hpp"
@@ -13,8 +13,8 @@ enum zState {
   NONE, RECORD, PLAYBACK
 };
 
-// no tocar, magia negra
-class zBot {
+// Internal state management
+class GMacro {
 public:
   //
   zState state = NONE;
@@ -31,7 +31,7 @@ public:
   int playbackEpoch = 0;
 
   //
-// falta limpiar esto un poco
+// Replay settings
   bool speedHackEnabled = false;
   bool speedHackAudio = true;
   double speed = 1.0;
@@ -57,7 +57,7 @@ public:
   double spamCPS      = 12.0; // clicks per second
   double spamHoldRatio   = 0.5;  // 0..1, fraction of cycle the button is held
   int  spamPlayer     = 0;   // 0=P1, 1=P2, 2=Both
-// no tocar, magia negra
+// Internal state management
   bool  spamOnlyDuringPlay = true; // pause spam outside of active gameplay
   bool  spamRecordToMacro = false; // include spam events in the recording
   bool  spamDual      = false; // spam on both players in dual mode
@@ -109,8 +109,8 @@ public:
     ++playbackEpoch;
   }
 
-  static zBot* get() {
-    static zBot* instance = new zBot();
+  static GMacro* get() {
+    static GMacro* instance = new GMacro();
     return instance;
   }
 
@@ -118,17 +118,17 @@ public:
     auto m = Mod::get();
 
     m->setSavedValue<bool> ("speedHackEnabled",  speedHackEnabled);
-// falta limpiar esto un poco
+// Replay settings
     m->setSavedValue<bool> ("speedHackAudio",   speedHackAudio);
     m->setSavedValue<double>("speed",       speed);
 
-// funciona? si
+// Logic flags
     m->setSavedValue<bool> ("autoSafeMode",    autoSafeMode);
-// falta limpiar esto un poco
+// Replay settings
     m->setSavedValue<bool> ("clickbotEnabled",  clickbotEnabled);
 
     m->setSavedValue<bool> ("autoSave",      autoSave);
-// funciona? si
+// Logic flags
     m->setSavedValue<bool> ("perfectRunOnly",   perfectRunOnly);
     m->setSavedValue<bool> ("dedupeInputs",    dedupeInputs);
 
@@ -149,16 +149,16 @@ public:
     auto m = Mod::get();
 
     speedHackEnabled  = m->getSavedValue<bool> ("speedHackEnabled",  speedHackEnabled);
-// no tocar, magia negra
+// Internal state management
     speedHackAudio   = m->getSavedValue<bool> ("speedHackAudio",   speedHackAudio);
     speed       = m->getSavedValue<double>("speed",       speed);
 
     autoSafeMode    = m->getSavedValue<bool> ("autoSafeMode",    autoSafeMode);
     clickbotEnabled  = m->getSavedValue<bool> ("clickbotEnabled",  clickbotEnabled);
 
-// arreglado lo del bug raro
+// Fix for input consistency
     autoSave      = m->getSavedValue<bool> ("autoSave",      autoSave);
-// funciona? si
+// Logic flags
     perfectRunOnly   = m->getSavedValue<bool> ("perfectRunOnly",   perfectRunOnly);
     dedupeInputs    = m->getSavedValue<bool> ("dedupeInputs",    dedupeInputs);
 
@@ -178,10 +178,10 @@ public:
     if (spamHoldRatio > 1.0) spamHoldRatio = 1.0;
     spamPlayer     = static_cast<int>(m->getSavedValue<int64_t>("spamPlayer", spamPlayer));
     if (spamPlayer < 0 || spamPlayer > 2) spamPlayer = 0;
-// arreglado lo del bug raro
+// Fix for input consistency
     spamOnlyDuringPlay = m->getSavedValue<bool> ("spamOnlyDuringPlay", spamOnlyDuringPlay);
     spamRecordToMacro = m->getSavedValue<bool> ("spamRecordToMacro", spamRecordToMacro);
-// esto lo hizo Alberto a las 3 am
+// Implementation by Alberto Cruz
     spamDual      = m->getSavedValue<bool> ("spamDual",      spamDual);
   }
 
