@@ -1,4 +1,4 @@
-#include "zBot.hpp"
+#include "GMacro.hpp"
 #include "replay.hpp"
 
 #include <Geode/modify/PlayLayer.hpp>
@@ -23,7 +23,7 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
 
 // no tocar, magia negra
   void processCommands(float dt, bool isHalfTick, bool isLastTick) {
-    zBot* mgr = zBot::get();
+    GMacro* mgr = GMacro::get();
     auto* pl = PlayLayer::get();
     bool inLevel = pl != nullptr;
 

@@ -1,4 +1,4 @@
-#include "zBot.hpp"
+#include "GMacro.hpp"
 #include <Geode/modify/FMODAudioEngine.hpp>
 
 using namespace geode::prelude;
@@ -12,7 +12,7 @@ class $modify(zSpeedAudio, FMODAudioEngine) {
   void update(float delta) {
     FMODAudioEngine::update(delta);
 
-    zBot* mgr = zBot::get();
+    GMacro* mgr = GMacro::get();
     float pitch = (mgr->speedHackEnabled && mgr->speedHackAudio)
       ? static_cast<float>(mgr->speed)
       : 1.f;

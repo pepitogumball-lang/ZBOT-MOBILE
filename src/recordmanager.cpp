@@ -1,4 +1,4 @@
-#include "zBot.hpp"
+#include "GMacro.hpp"
 #include "replay.hpp"
 
 #include <Geode/modify/PlayLayer.hpp>
@@ -14,7 +14,7 @@ static bool s_lastDown = false;
 static int s_lastButton = -1;
 static bool s_lastP2 = false;
 
-static bool shouldRecord(zBot* mgr, bool down, int button, bool p2, int frame) {
+static bool shouldRecord(GMacro* mgr, bool down, int button, bool p2, int frame) {
   if (frame == s_lastFrame && down == s_lastDown && button == s_lastButton && p2 == s_lastP2) {
     return false;
   }
@@ -45,7 +45,7 @@ class $modify(zRecGJBGL, GJBaseGameLayer) {
   void handleButton(bool down, int button, bool p1) {
     GJBaseGameLayer::handleButton(down, button, p1);
 
-    zBot* mgr = zBot::get();
+    GMacro* mgr = GMacro::get();
     if (mgr->state != RECORD || !mgr->currentReplay) return;
 
     if (mgr->spamSuppressRecord && !mgr->spamRecordToMacro) return;
@@ -72,7 +72,7 @@ class $modify(zRecGJBGL, GJBaseGameLayer) {
 
 class $modify(zRecPL, PlayLayer) {
   bool init(GJGameLevel* lvl, bool useReplay, bool dontCreateObjects) {
-    zBot* mgr = zBot::get();
+    GMacro* mgr = GMacro::get();
 
     if (mgr->state == RECORD) {
       mgr->createNewReplay(lvl);
@@ -96,7 +96,7 @@ class $modify(zRecPL, PlayLayer) {
   void resetLevel() {
     PlayLayer::resetLevel();
 
-    zBot* mgr = zBot::get();
+    GMacro* mgr = GMacro::get();
     if (mgr->state != RECORD || !mgr->currentReplay) return;
 
     int frame = static_cast<int>(this->m_gameState.m_currentProgress) / 2;
@@ -124,7 +124,7 @@ class $modify(zRecPL, PlayLayer) {
   }
 
   void destroyPlayer(PlayerObject* player, GameObject* obj) {
-    zBot* mgr = zBot::get();
+    GMacro* mgr = GMacro::get();
     if (mgr->autoSafeMode && (mgr->state == RECORD || mgr->state == PLAYBACK)) {
       return;
     }
@@ -133,7 +133,7 @@ class $modify(zRecPL, PlayLayer) {
 
 // arreglado lo del bug raro
   void levelComplete() {
-    zBot* mgr = zBot::get();
+    GMacro* mgr = GMacro::get();
     if (mgr->state == RECORD && mgr->currentReplay) {
       mgr->levelCompleted = true;
       if (mgr->autoSave) {
@@ -159,7 +159,7 @@ class $modify(zRecPL, PlayLayer) {
 
 // esto lo hizo Alberto a las 3 am
   void onExit() {
-    zBot* mgr = zBot::get();
+    GMacro* mgr = GMacro::get();
     if (mgr->state == RECORD && mgr->currentReplay && mgr->autoSave
       && !mgr->autoSavedThisRun) {
       if (!mgr->perfectRunOnly || mgr->levelCompleted) {
