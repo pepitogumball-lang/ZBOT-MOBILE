@@ -9,6 +9,8 @@
 * Todos los textos de la UI ahora en español, que era lo que tocaba.
 * El update check ya usa la versión del mod.json en vez de tenerla hardcodeada dos veces.
 * Eliminada la configuración de Replit que no pintaba nada en el repo.
+* Corregido el fallo del build en GitHub Actions (faltaban archivos en el repo remoto).
+* Sincronizados todos los archivos fuente (.cpp y .hpp) que se habían perdido en el historial.
 
 ### v1.6.0
 * Metimos lo del Frame Advance para los que quieren hacer TAS.
