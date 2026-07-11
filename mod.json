@@ -1,0 +1,32 @@
+{
+  "geode": "5.8.0",
+  "gd": {
+    "win": "2.2081",
+    "android": "2.2081",
+    "mac": "2.2081",
+    "ios": "2.2081"
+  },
+  "version":  "v1.6.1",
+  "id": "pepitogumball.zbot_mobile",
+  "name": "ZBOT-MOBILE",
+  "developers": ["pepitogumball", "Alberto Cruz", "Maria Lopez"],
+  "description": "Un bot para movil hecho por amigos. Grabacion, playback, speedhack y mas. Disfrutalo!",
+  "links": {
+    "source": "https://github.com/pepitogumball-lang/ZBOT-MOBILE"
+  },
+  "tags": ["gameplay", "utility"],
+  "resources": {
+    "files": [
+      "*.png"
+    ]
+  },
+  "settings": {
+    "disable-update-check": {
+      "type": "bool",
+      "default": false,
+      "name": "Disable update check",
+      "description": "Skip the once-per-launch GitHub Releases check that notifies you when a newer build of ZBOT-MOBILE is available."
+    }
+  },
+  "early-load": true
+}
