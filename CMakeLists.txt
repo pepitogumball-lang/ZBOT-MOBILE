@@ -22,7 +22,7 @@ CPMAddPackage("gh:matcool/gd-imgui-cocos#1ed2f931b49e6d00e3f03abe54fb995b6f02007
 
 set(SOURCES
     src/main.cpp
-    src/zBot.cpp
+    src/GMacro.cpp
     src/gui.cpp
     src/recordmanager.cpp
     src/playbackmanager.cpp
