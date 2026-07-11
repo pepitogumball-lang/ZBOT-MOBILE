@@ -1,23 +1,30 @@
-# G-Macro Android
+# G-Macro Android (v1.7.0)
 
-G-Macro Android es un macro bot avanzado diseñado específicamente para Geometry Dash en dispositivos Android, utilizando el Geode SDK.
+A feature-rich macro utility for Geometry Dash on Android, providing frame-accurate recording and playback using the GDR format.
 
-### Características Principales:
-* **Grabación y Playback**: Soporte completo para macros en formato GDR.
-* **Speedhack**: Control preciso de la velocidad del juego con ajuste de audio sincronizado.
-* **Spam / Autoclicker**: Configurable por jugador y botón.
-* **Interfaz ImGui**: Diseño optimizado para pantallas táctiles con bola flotante interactiva.
+## Features
 
-### Créditos y Desarrollo:
-* **Alberto Cruz**: Diseño de Interfaz de Usuario (UI/UX).
-* **María López**: Lógica de grabación y gestión de inputs.
-* **pepitogumball**: Integración, mantenimiento y distribución.
+*   **Frame-Accurate Macros**: Precise input recording and playback synchronized with the game's physics engine.
+*   **GDR Support**: Full compatibility with the industry-standard replay format.
+*   **Integrated Speedhack**: Adjust gameplay speed with high precision.
+*   **Audio-Synced Clickbot**: Customizable click sounds for enhanced replay feedback.
+*   **Mobile Optimized UI**: Clean and intuitive interface designed specifically for Android touch interaction.
 
-Este proyecto utiliza **libGDR** para la gestión de archivos de macro y **imgui-cocos** para la interfaz gráfica. Agradecemos a la comunidad de Geode por las herramientas y documentación proporcionadas.
+## Installation
 
-### Cómo va la cosa:
-Es un mod de Geode, así que lo instalas normal. Dentro del juego te sale el menú y puedes grabar tus macros. Lo hemos probado en varios móviles y va bastante fino.
+1.  Ensure you have **Geode** installed on your Geometry Dash Android version.
+2.  Download the latest `.geode` file from the [Releases](https://github.com/pepitogumball-lang/ZBOT-MOBILE/releases) section.
+3.  Install via the Geode mod manager.
 
-Si encuentras algún fallo avisa, aunque como digo ahora estamos a tope con otra cosa y tardaremos un poco en mirar los issues.
+## Usage
 
-Disfrutadlo!
+*   **Record**: Capture your inputs during gameplay. Only perfect runs (level completion) are saved by default to ensure macro quality.
+*   **Playback**: Replay saved macros with high fidelity.
+*   **Settings**: Customize clickbot sounds, spam behavior, and speedhack settings via the in-game menu.
+
+## Credits
+
+This project is maintained by **pepitogumball-lang**. Special thanks to the Geode SDK team and the creators of the GDR format for their contributions to the modding community.
+
+---
+*Developed by pepitogumball-lang.*

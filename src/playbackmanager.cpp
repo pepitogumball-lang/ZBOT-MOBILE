@@ -21,7 +21,7 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
     bool spamWasOn   = false;
   };
 
-// no tocar, magia negra
+// Core playback and spam logic loop
   void processCommands(float dt, bool isHalfTick, bool isLastTick) {
     GMacro* mgr = GMacro::get();
     auto* pl = PlayLayer::get();
@@ -34,12 +34,12 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
     }
     mgr->doAdvance = false;
 
-    int frame = static_cast<int>(m_gameState.m_currentProgress) / 2;
+    int frame = static_cast<int>(m_gameState.m_totalFrames);
 
     //
     if (mgr->state == PLAYBACK && mgr->currentReplay) {
       bool epochChanged  = (m_fields->lastEpoch != mgr->playbackEpoch);
-// arreglado lo del bug raro
+// Consistency checks for playback state
       bool replayChanged = (m_fields->lastReplay != mgr->currentReplay);
 
       if (epochChanged || replayChanged) {
@@ -55,7 +55,7 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
            << " | hasCheckpoint=" << (inLevel && pl->m_currentCheckpoint != nullptr)
            << " | epoch=" << mgr->playbackEpoch);
 
-// funciona? si
+// Handle mid-level playback synchronization
         bool isMidLevelJoin = inLevel
           && pl->m_currentCheckpoint != nullptr
           && frame > 1;
@@ -145,7 +145,7 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
         double rel = static_cast<double>(frame - m_fields->spamAnchor);
         double phase = std::fmod(rel, cycle);
         if (phase < 0.0) phase += cycle;
-// arreglado lo del bug raro
+// Consistency checks for playback state
         bool wantDown = (phase < hold);
 
         bool dual = m_gameState.m_isDualMode &&
@@ -155,7 +155,7 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
         int button = mgr->spamButton;
         if (button < 1 || button > 3) button = 1;
 
-// esto lo hizo Alberto a las 3 am
+// Player button drive logic
         auto driveButton = [&](int playerIdx, bool isP2) {
           bool& cur = m_fields->spamHeld[playerIdx];
           if (cur == wantDown) return;

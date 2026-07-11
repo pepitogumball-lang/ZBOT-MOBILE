@@ -9,13 +9,13 @@
 
 using namespace geode::prelude;
 
-// falta limpiar esto un poco
+// Main GUI class for mod interface
 class GUI {
 public:
   bool visible = false;
 
   ImVec2 ballPos = ImVec2(20.f, 80.f);
-// funciona? si
+// Internal UI state flags
   bool ballDragging = false;
 
   std::vector<zReplay::MacroFileInfo> macros;
@@ -35,14 +35,14 @@ public:
   void renderMainPanel();
   void renderHomeTab();
   void renderMacroTab();
-// no tocar, magia negra
+// Modular tab rendering methods
   void renderSpeedTab();
   void renderSpamTab();
   void renderSettingsTab();
-// arreglado lo del bug raro
+// Utility methods for UI state management
   void renderConsoleTab();
 
-// funciona? si
+// Internal UI state flags
   bool  consolePaused  = false;
   bool  consoleAutoScroll = true;
   int  consoleMinLevel = 0; // 0=Debug 1=Info 2=Warn 3=Error
@@ -50,11 +50,11 @@ public:
   bool  consoleCopied  = false;
   float consoleCopiedTimer = 0.f;
 
-// arreglado lo del bug raro
+// Utility methods for UI state management
   void renderReplayInfo();
   void renderStateSwitcher();
 
-// esto lo hizo Alberto a las 3 am
+// Resource management methods
   void refreshMacros();
 
   // EclipseMenu-style theme

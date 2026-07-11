@@ -50,11 +50,11 @@ class $modify(zRecGJBGL, GJBaseGameLayer) {
 
     if (mgr->spamSuppressRecord && !mgr->spamRecordToMacro) return;
 
-// no tocar, magia negra
+// Determine if this is a Player 2 input in Dual Mode
     bool p2 = !p1 && m_levelSettings && m_levelSettings->m_twoPlayerMode
          && this->m_gameState.m_isDualMode;
     
-    int frame = static_cast<int>(this->m_gameState.m_currentProgress) / 2;
+    int frame = static_cast<int>(this->m_gameState.m_totalFrames);
     
     if (!shouldRecord(mgr, down, button, p2, frame)) return;
 
@@ -92,19 +92,19 @@ class $modify(zRecPL, PlayLayer) {
     return true;
   }
 
-// arreglado lo del bug raro
+// Handle practice mode and reset logic
   void resetLevel() {
     PlayLayer::resetLevel();
 
     GMacro* mgr = GMacro::get();
     if (mgr->state != RECORD || !mgr->currentReplay) return;
 
-    int frame = static_cast<int>(this->m_gameState.m_currentProgress) / 2;
+    int frame = static_cast<int>(this->m_gameState.m_totalFrames);
     mgr->currentReplay->purgeAfter(frame);
 
     mgr->resetButtonStateAfterFrame(frame);
 
-// funciona? si
+// Check for dual mode configuration
     bool dual = this->m_gameState.m_isDualMode &&
           m_levelSettings &&
           m_levelSettings->m_twoPlayerMode;
@@ -131,7 +131,7 @@ class $modify(zRecPL, PlayLayer) {
     PlayLayer::destroyPlayer(player, obj);
   }
 
-// arreglado lo del bug raro
+// Handle practice mode and reset logic
   void levelComplete() {
     GMacro* mgr = GMacro::get();
     if (mgr->state == RECORD && mgr->currentReplay) {

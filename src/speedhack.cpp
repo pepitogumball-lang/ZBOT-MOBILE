@@ -3,7 +3,7 @@
 
 using namespace geode::prelude;
 
-// esto lo hizo Alberto a las 3 am
+// Custom scheduler for speedhack implementation
 class $modify(zSpeedSched, cocos2d::CCScheduler) {
   void update(float dt) {
     GMacro* mgr = GMacro::get();

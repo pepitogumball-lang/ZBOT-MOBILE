@@ -20,7 +20,7 @@ using namespace geode::prelude;
 namespace {
 
 constexpr const char* kReleasesUrl =
-  "https://api.github.com/repos/pepitogumball-lang/ZBOT-MOBILE/releases/latest"; // Mantener por ahora hasta que el repo se renombre
+  "https://api.github.com/repos/pepitogumball-lang/ZBOT-MOBILE/releases/latest"; // Release tracking endpoint
 
 int parseSemver(const std::string& raw) {
   std::string s = raw;

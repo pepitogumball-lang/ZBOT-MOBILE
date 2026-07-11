@@ -20,7 +20,7 @@ std::vector<uint8_t> getValue(T* instance, std::pair<ptrdiff_t, size_t> memberPa
 };
 
 template<typename T>
-// esto lo hizo Alberto a las 3 am
+// Utility functions for memory manipulation and state restoration
 void restoreValue(T* instance, std::pair<ptrdiff_t, size_t> memberPair, std::vector<uint8_t> value) {
   std::memcpy((void*)((uintptr_t)instance + memberPair.first), (void*)value.data(), memberPair.second);
 };

@@ -21,7 +21,7 @@ using namespace geode::prelude;
 struct zInput : gdr::Input {
   zInput() = default;
 
-// Validation successful
+// Input data structure for replay events
   zInput(int frame, int button, bool player2, bool down)
     : Input(frame, button, player2, down) {}
 };
@@ -30,7 +30,7 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
   std::string name;
 
   //
-  // Schema log:
+  // Replay format initialization
   zReplay() : Replay("G-Macro-Android", "2.0.0") {}
 
   static std::filesystem::path macrosDir() {
@@ -277,7 +277,7 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
     return out;
   }
 
-// Input consistency fix
+// File management and cleanup
   static bool deleteByName(const std::string& fileName) {
     if (fileName.empty()) return false;
     auto dir = macrosDir();
@@ -289,7 +289,7 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
     return ok;
   }
 
-// Implementation by Alberto Cruz
+// Replay data manipulation methods
   void purgeAfter(int frame) {
     inputs.erase(std::remove_if(inputs.begin(), inputs.end(), [frame](const zInput& input) {
       return input.frame >= frame;

@@ -31,7 +31,7 @@ static std::string sanitizeName(const char* raw) {
 // EclipseMenu-inspired theme
 //
 //
-// Alberto se paso con el morado pero queda bien
+// Apply visual styling and color scheme
 void GUI::applyTheme() {
   ImGuiStyle& s = ImGui::GetStyle();
 
@@ -108,7 +108,7 @@ void GUI::applyTheme() {
 //
 //
 //
-// La bolita de marras
+// Render the floating overlay button
 void GUI::renderFloatingBall() {
   constexpr float kBallRadius = 26.f;
   constexpr float kBallSize  = kBallRadius * 2.f;
@@ -249,7 +249,7 @@ void GUI::renderStateSwitcher() {
 //
 //
 // UI helper
-// Aqui es donde se ve todo el tinglado
+// Render the main home dashboard tab
 void GUI::renderHomeTab() {
   GMacro* mgr = GMacro::get();
 
@@ -279,7 +279,7 @@ void GUI::renderHomeTab() {
               "Frame Advance: ON (nivel pausado)");
     auto* pl = PlayLayer::get();
     if (pl) {
-      int curFrame = static_cast<int>(pl->m_gameState.m_currentProgress) / 2;
+      int curFrame = static_cast<int>(pl->m_gameState.m_totalFrames);
       ImGui::Text("Frame actual: %d", curFrame);
     } else {
       ImGui::TextDisabled("Entra a un nivel para empezar.");
@@ -750,7 +750,7 @@ void GUI::renderSettingsTab() {
   ImGui::Separator();
 // Status check
   bool stDirty = false;
-  stDirty |= ImGui::Checkbox("Safe mode (anti-ban)", &mgr->autoSafeMode);
+  stDirty |= ImGui::Checkbox("Safe mode", &mgr->autoSafeMode);
   if (ImGui::IsItemHovered()) {
     ImGui::SetTooltip("Activa el modo practica al entrar al nivel para que\n"
              "los checkpoints no cuenten como run real.\n"

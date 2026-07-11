@@ -31,7 +31,7 @@ public:
   int playbackEpoch = 0;
 
   //
-// Replay settings
+// Macro playback and recording settings
   bool speedHackEnabled = false;
   bool speedHackAudio = true;
   double speed = 1.0;
@@ -118,17 +118,17 @@ public:
     auto m = Mod::get();
 
     m->setSavedValue<bool> ("speedHackEnabled",  speedHackEnabled);
-// Replay settings
+// Macro playback and recording settings
     m->setSavedValue<bool> ("speedHackAudio",   speedHackAudio);
     m->setSavedValue<double>("speed",       speed);
 
-// Logic flags
+// Operational logic flags
     m->setSavedValue<bool> ("autoSafeMode",    autoSafeMode);
-// Replay settings
+// Macro playback and recording settings
     m->setSavedValue<bool> ("clickbotEnabled",  clickbotEnabled);
 
     m->setSavedValue<bool> ("autoSave",      autoSave);
-// Logic flags
+// Operational logic flags
     m->setSavedValue<bool> ("perfectRunOnly",   perfectRunOnly);
     m->setSavedValue<bool> ("dedupeInputs",    dedupeInputs);
 
@@ -156,9 +156,9 @@ public:
     autoSafeMode    = m->getSavedValue<bool> ("autoSafeMode",    autoSafeMode);
     clickbotEnabled  = m->getSavedValue<bool> ("clickbotEnabled",  clickbotEnabled);
 
-// Fix for input consistency
+// Settings persistence logic
     autoSave      = m->getSavedValue<bool> ("autoSave",      autoSave);
-// Logic flags
+// Operational logic flags
     perfectRunOnly   = m->getSavedValue<bool> ("perfectRunOnly",   perfectRunOnly);
     dedupeInputs    = m->getSavedValue<bool> ("dedupeInputs",    dedupeInputs);
 
@@ -178,10 +178,10 @@ public:
     if (spamHoldRatio > 1.0) spamHoldRatio = 1.0;
     spamPlayer     = static_cast<int>(m->getSavedValue<int64_t>("spamPlayer", spamPlayer));
     if (spamPlayer < 0 || spamPlayer > 2) spamPlayer = 0;
-// Fix for input consistency
+// Settings persistence logic
     spamOnlyDuringPlay = m->getSavedValue<bool> ("spamOnlyDuringPlay", spamOnlyDuringPlay);
     spamRecordToMacro = m->getSavedValue<bool> ("spamRecordToMacro", spamRecordToMacro);
-// Implementation by Alberto Cruz
+// Additional configuration options
     spamDual      = m->getSavedValue<bool> ("spamDual",      spamDual);
   }
 

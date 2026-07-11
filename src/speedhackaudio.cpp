@@ -3,7 +3,7 @@
 
 using namespace geode::prelude;
 
-// esto lo hizo Alberto a las 3 am
+// FMOD audio pitch adjustment for speedhack support
 class $modify(zSpeedAudio, FMODAudioEngine) {
   struct Fields {
     float pitch = 1.f;

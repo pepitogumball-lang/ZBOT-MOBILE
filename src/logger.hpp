@@ -14,7 +14,7 @@ using namespace geode::prelude;
 //
 //
 
-// arreglado lo del bug raro
+// Log level enumeration
 enum class ZLogLevel { Debug, Info, Warn, Error };
 
 struct ZLogEntry {
@@ -24,7 +24,7 @@ struct ZLogEntry {
   std::string full; // pre-formatted line shown in the console
 };
 
-// funciona? si
+// Core logger implementation
 class ZBotLogger {
 public:
   static ZBotLogger& get() {
@@ -70,7 +70,7 @@ public:
     return out;
   }
 
-// arreglado lo del bug raro
+// Log level enumeration
   bool dirty() {
     std::lock_guard<std::mutex> lk(m_mtx);
     bool d = m_dirty;
@@ -81,7 +81,7 @@ public:
 private:
   ZBotLogger() { openFile(); }
 
-// esto lo hizo Alberto a las 3 am
+// File management for logging
   void openFile() {
     auto dir = Mod::get()->getSaveDir();
     m_file.open(dir / "zbot_debug.log",

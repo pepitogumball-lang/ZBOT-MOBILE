@@ -9,8 +9,8 @@
   "version": "v1.7.0",
   "id": "pepitogumball.gmacro_android",
   "name": "G-Macro Android",
-  "developers": ["pepitogumball", "Alberto Cruz", "Maria Lopez"],
-  "description": "Un potente macro bot para Geometry Dash en Android. Incluye grabación, reproducción, speedhack y clickbot integrado. Basado en el formato GDR.",
+  "developers": ["pepitogumball-lang"],
+  "description": "A feature-rich macro utility for Geometry Dash on Android, providing frame-accurate recording and playback using the GDR format. Includes integrated speedhack and audio-synced clickbot.",
   "links": {
     "source": "https://github.com/pepitogumball-lang/ZBOT-MOBILE"
   },
