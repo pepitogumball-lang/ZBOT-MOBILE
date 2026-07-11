@@ -1,6 +1,8 @@
 #ifndef _zbot_hpp
 #define _zbot_hpp
 
+#define ZBOT_VERSION "v1.6.1"
+
 #include <Geode/Geode.hpp>
 #include "replay.hpp"
 
