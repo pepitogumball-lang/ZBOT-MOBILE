@@ -15,7 +15,7 @@ class $modify(zSpeedAudio, FMODAudioEngine) {
 
     GMacro* mgr = GMacro::get();
     float pitch = 1.f;
-    if (mgr->speedHackEnabled && mgr->speedHackAudio && mgr->speed > 0.05) {
+    if (mgr->speedHackEnabled && mgr->speedHackAudio && mgr->speed > GMACRO_SPEED_MIN) {
       pitch = std::clamp(static_cast<float>(mgr->speed), 0.5f, 2.0f);
     }
 

@@ -96,8 +96,14 @@ private:
   std::string ts() {
     auto now = std::chrono::system_clock::now();
     auto t  = std::chrono::system_clock::to_time_t(now);
+    std::tm tmv{};
+#if defined(_WIN32)
+    localtime_s(&tmv, &t);
+#else
+    localtime_r(&t, &tmv);
+#endif
     char buf[16];
-    std::strftime(buf, sizeof(buf), "%H:%M:%S", std::localtime(&t));
+    std::strftime(buf, sizeof(buf), "%H:%M:%S", &tmv);
     return std::string(buf);
   }
 

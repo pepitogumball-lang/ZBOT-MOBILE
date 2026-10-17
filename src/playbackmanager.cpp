@@ -139,64 +139,62 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
     GJBaseGameLayer::processCommands(dt, isHalfTick, isLastTick);
 
     //
-    if (mgr->spamEnabled && inLevel) {
-      bool gateOk = true;
-      if (mgr->spamOnlyDuringPlay) {
-        gateOk = !pl->m_isPaused;
+    bool spamGateOk = true;
+    if (mgr->spamOnlyDuringPlay && inLevel) {
+      spamGateOk = !pl->m_isPaused;
+    }
+
+    if (mgr->spamEnabled && inLevel && spamGateOk) {
+      if (!m_fields->spamWasOn || frame < m_fields->spamAnchor) {
+        m_fields->spamAnchor = frame;
+        m_fields->spamHeld[0] = false;
+        m_fields->spamHeld[1] = false;
       }
+      m_fields->spamWasOn = true;
 
-      if (gateOk) {
-        if (!m_fields->spamWasOn || frame < m_fields->spamAnchor) {
-          m_fields->spamAnchor = frame;
-          m_fields->spamHeld[0] = false;
-          m_fields->spamHeld[1] = false;
-        }
-        m_fields->spamWasOn = true;
+      double tps = (mgr->currentReplay && mgr->currentReplay->framerate > 0.0)
+        ? mgr->currentReplay->framerate
+        : 240.0;
+      double cps = std::clamp(mgr->spamCPS, 0.1, 240.0);
+      double cycle = tps / cps;
+      if (cycle < 1.0) cycle = 1.0;
+      double hold = cycle * std::clamp(mgr->spamHoldRatio, 0.0, 1.0);
+      if (hold < 1.0 && mgr->spamHoldRatio > 0.0) hold = 1.0;
+      if (hold >= cycle) hold = cycle - 0.001;
 
-        double tps = (mgr->currentReplay && mgr->currentReplay->framerate > 0.0)
-          ? mgr->currentReplay->framerate
-          : 240.0;
-        double cps = std::clamp(mgr->spamCPS, 0.1, 240.0);
-        double cycle = tps / cps;
-        if (cycle < 1.0) cycle = 1.0;
-        double hold = cycle * std::clamp(mgr->spamHoldRatio, 0.0, 1.0);
-        if (hold < 1.0 && mgr->spamHoldRatio > 0.0) hold = 1.0;
-        if (hold >= cycle) hold = cycle - 0.001;
-
-        double rel = static_cast<double>(frame - m_fields->spamAnchor);
-        double phase = std::fmod(rel, cycle);
-        if (phase < 0.0) phase += cycle;
+      double rel = static_cast<double>(frame - m_fields->spamAnchor);
+      double phase = std::fmod(rel, cycle);
+      if (phase < 0.0) phase += cycle;
 // Consistency checks for playback state
-        bool wantDown = (phase < hold);
+      bool wantDown = (phase < hold);
 
-        bool dual = m_gameState.m_isDualMode &&
-              m_levelSettings &&
-              m_levelSettings->m_twoPlayerMode;
+      bool dual = m_gameState.m_isDualMode &&
+            m_levelSettings &&
+            m_levelSettings->m_twoPlayerMode;
 
-        int button = mgr->spamButton;
-        if (button < 1 || button > 3) button = 1;
+      int button = mgr->spamButton;
+      if (button < 1 || button > 3) button = 1;
 
 // Player button drive logic
-        auto driveButton = [&](int playerIdx, bool isP2) {
-          bool& cur = m_fields->spamHeld[playerIdx];
-          if (cur == wantDown) return;
-          cur = wantDown;
+      auto driveButton = [&](int playerIdx, bool isP2) {
+        bool& cur = m_fields->spamHeld[playerIdx];
+        if (cur == wantDown) return;
+        cur = wantDown;
 
-          mgr->spamSuppressRecord = true;
-          #ifdef GEODE_IS_MOBILE
-          m_allowedButtons.clear();
-          #endif
-          GJBaseGameLayer::handleButton(wantDown, button, !isP2);
-          mgr->spamSuppressRecord = false;
-        };
+        mgr->spamSuppressRecord = true;
+        #ifdef GEODE_IS_MOBILE
+        m_allowedButtons.clear();
+        #endif
+        GJBaseGameLayer::handleButton(wantDown, button, !isP2);
+        mgr->spamSuppressRecord = false;
+      };
 
-        // spamPlayer: 0=P1, 1=P2, 2=Both
-        // spamDual solo aplica si el nivel esta en modo dual
-        bool doP1 = (mgr->spamPlayer == 0 || mgr->spamPlayer == 2);
-        bool doP2 = (mgr->spamPlayer == 1 || mgr->spamPlayer == 2) && dual;
-        if (doP1) driveButton(0, false);
-        if (doP2) driveButton(1, true);
-      }
+      // spamPlayer: 0=P1, 1=P2, 2=Both
+      // spamDual solo aplica si el nivel esta en modo dual
+      bool doP1 = (mgr->spamPlayer == 0 || mgr->spamPlayer == 2);
+      bool doP2 = (mgr->spamPlayer == 1 || mgr->spamPlayer == 2) && dual;
+      if (doP1) driveButton(0, false);
+      if (doP2) driveButton(1, true);
     } else {
       m_fields->spamWasOn = false;
     }

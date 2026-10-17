@@ -22,6 +22,12 @@ bool shouldRecord(GMacro* mgr, bool down, int button, bool p2, int frame) {
       if (held == down) return false;
       held = down;
     }
+  } else if (button >= 0 && button <= 7) {
+    // Aunque la deduplicacion este desactivada, hay que MANTENER el estado de
+    // botones: se usa para emitir los "release" al reiniciar el nivel
+    // (resetLevel). Si no se actualiza, esos releases se pierden.
+    bool& held = p2 ? mgr->p2ButtonHeld[button] : mgr->p1ButtonHeld[button];
+    held = down;
   }
 
   mgr->dedupeLastFrame   = frame;

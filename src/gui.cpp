@@ -418,8 +418,8 @@ void GUI::renderMacroTab() {
   ImGui::TextDisabled("Espaciado anti-spam (frames):");
   ImGui::SetNextItemWidth(120.f);
   if (ImGui::InputInt("Min hold##sp", &mgr->minHoldFrames, 1, 4)) {
-    if (mgr->minHoldFrames < 0) mgr->minHoldFrames = 0;
-    if (mgr->minHoldFrames > 60) mgr->minHoldFrames = 60;
+    if (mgr->minHoldFrames < GMACRO_HOLD_MIN) mgr->minHoldFrames = GMACRO_HOLD_MIN;
+    if (mgr->minHoldFrames > GMACRO_HOLD_MAX) mgr->minHoldFrames = GMACRO_HOLD_MAX;
     qDirty = true;
   }
   if (ImGui::IsItemHovered()) {
@@ -431,8 +431,8 @@ void GUI::renderMacroTab() {
   ImGui::SameLine();
   ImGui::SetNextItemWidth(120.f);
   if (ImGui::InputInt("Min gap##sp", &mgr->minGapFrames, 1, 4)) {
-    if (mgr->minGapFrames < 0) mgr->minGapFrames = 0;
-    if (mgr->minGapFrames > 60) mgr->minGapFrames = 60;
+    if (mgr->minGapFrames < GMACRO_GAP_MIN) mgr->minGapFrames = GMACRO_GAP_MIN;
+    if (mgr->minGapFrames > GMACRO_GAP_MAX) mgr->minGapFrames = GMACRO_GAP_MAX;
     qDirty = true;
   }
   if (ImGui::IsItemHovered()) {
@@ -606,15 +606,17 @@ void GUI::renderSpeedTab() {
   float speed = static_cast<float>(mgr->speed);
   if (ImGui::InputFloat("Speed (x)", &speed, 0.05f, 0.25f, "%.3f")) {
     if (speed < 0.f) speed = 0.f;
+    if (speed > static_cast<float>(GMACRO_SPEED_MAX))
+      speed = static_cast<float>(GMACRO_SPEED_MAX);
     mgr->speed = static_cast<double>(speed);
     spDirty = true;
   }
   if (ImGui::IsItemHovered()) {
-    ImGui::SetTooltip("0  = apagado\n"
+    ImGui::SetTooltip("0   = apagado\n"
              "0.1 = casi frame a frame\n"
              "0.25 = practica lenta\n"
              "1.0 = normal\n"
-             ">1  = mas rapido (sin limite)");
+             ">1  = mas rapido (max %.0fx)", GMACRO_SPEED_MAX);
   }
 
   static const struct {

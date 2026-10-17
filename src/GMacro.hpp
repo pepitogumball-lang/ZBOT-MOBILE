@@ -13,6 +13,17 @@ enum zState {
   NONE, RECORD, PLAYBACK
 };
 
+// Limites de speedhack, compartidos por GMacro, speedhack.cpp,
+// speedhackaudio.cpp y gui.cpp para que la UI y la aplicacion coincidan.
+// speed == 0 significa "speedhack apagado".
+constexpr double GMACRO_SPEED_MIN = 0.05;
+constexpr double GMACRO_SPEED_MAX = 8.0;
+// Limites de los ajustes anti-spam (frames), compartidos con la UI.
+constexpr int GMACRO_HOLD_MIN = 0;
+constexpr int GMACRO_HOLD_MAX = 60;
+constexpr int GMACRO_GAP_MIN  = 0;
+constexpr int GMACRO_GAP_MAX  = 60;
+
 // Internal state management
 class GMacro {
 public:
@@ -154,6 +165,8 @@ public:
 // Internal state management
     speedHackAudio   = m->getSavedValue<bool> ("speedHackAudio",   speedHackAudio);
     speed       = m->getSavedValue<double>("speed",       speed);
+    if (speed < 0.0) speed = 0.0;
+    if (speed > GMACRO_SPEED_MAX) speed = GMACRO_SPEED_MAX;
 
     autoSafeMode    = m->getSavedValue<bool> ("autoSafeMode",    autoSafeMode);
     clickbotEnabled  = m->getSavedValue<bool> ("clickbotEnabled",  clickbotEnabled);
@@ -166,8 +179,10 @@ public:
 
     minHoldFrames   = static_cast<int>(m->getSavedValue<int64_t>("minHoldFrames", minHoldFrames));
     minGapFrames    = static_cast<int>(m->getSavedValue<int64_t>("minGapFrames", minGapFrames));
-    if (minHoldFrames < 0) minHoldFrames = 0;
-    if (minGapFrames < 0) minGapFrames = 0;
+    if (minHoldFrames < GMACRO_HOLD_MIN) minHoldFrames = GMACRO_HOLD_MIN;
+    if (minHoldFrames > GMACRO_HOLD_MAX) minHoldFrames = GMACRO_HOLD_MAX;
+    if (minGapFrames < GMACRO_GAP_MIN) minGapFrames = GMACRO_GAP_MIN;
+    if (minGapFrames > GMACRO_GAP_MAX) minGapFrames = GMACRO_GAP_MAX;
 
     spamEnabled    = m->getSavedValue<bool> ("spamEnabled",    spamEnabled);
     spamButton     = static_cast<int>(m->getSavedValue<int64_t>("spamButton", spamButton));

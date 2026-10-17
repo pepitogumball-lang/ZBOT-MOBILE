@@ -9,8 +9,8 @@ class $modify(zSpeedSched, cocos2d::CCScheduler) {
   void update(float dt) {
     GMacro* mgr = GMacro::get();
     float s = 1.f;
-    if (mgr->speedHackEnabled && mgr->speed > 0.05) {
-      s = static_cast<float>(std::clamp(mgr->speed, 0.05, 8.0));
+    if (mgr->speedHackEnabled && mgr->speed > GMACRO_SPEED_MIN) {
+      s = static_cast<float>(std::clamp(mgr->speed, GMACRO_SPEED_MIN, GMACRO_SPEED_MAX));
     }
     CCScheduler::update(dt * s);
   }
