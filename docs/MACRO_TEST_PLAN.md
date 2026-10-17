@@ -9,10 +9,15 @@
 ## Pruebas automatizadas (funciones puras)
 
 Desde v1.8.0 la lógica pura está en `src/macro_utils.hpp` (sin dependencias de Geode)
-y se prueba en `tests/test_macro_utils.cpp`. Se ejecuta localmente con:
+y se prueba en `tests/test_macro_utils.cpp`. El round-trip de serialización se prueba
+contra la librería real GDReplayFormat en `tests/test_gdr_roundtrip.cpp`. Se ejecutan localmente con:
 
 ```sh
 g++ -std=c++17 -Wall -Wextra -I src tests/test_macro_utils.cpp -o /tmp/test_macro && /tmp/test_macro
+
+git clone https://github.com/maxnut/GDReplayFormat /tmp/gdr
+git -C /tmp/gdr checkout 9c32b5529067901418ea6e4dfbd36437dc8712bc
+g++ -std=c++17 -Wall -Wextra -I /tmp/gdr/include tests/test_gdr_roundtrip.cpp -o /tmp/test_gdr && /tmp/test_gdr
 ```
 
 y en CI en el job **Unit tests**. La columna "Estado" distingue **AUTO** (cubierto por
@@ -22,13 +27,13 @@ esos tests), **CÓDIGO** (verificado por revisión de código, sin test aislado)
 | ID | Caso | Entrada | Resultado esperado | Estado |
 |---|---|---|---|---|
 | T-01 | Macro vacía | `inputs = {}` | No crash; utilidades no rompen con lista vacía | AUTO (vacío) |
-| T-02 | Un solo click (press/release) | frames 10 y 15 | Ambos eventos con frames exactos | AUTO (dedupe) |
+| T-02 | Un solo click (press/release) | frames 10 y 15 | Ambos eventos con frames exactos | AUTO (+ round-trip) |
 | T-03 | Varias pulsaciones rápidas | frames 10,12,14,16 | Todos conservados | AUTO |
 | T-04 | Hold largo | press 10, release 100 | Frames no se desplazan | AUTO |
 | T-05 | Múltiples eventos mismo frame | frame 50, botones 1 y 2 | Ambos conservados | AUTO |
 | T-06 | Input frame 0 | frame 0 | Frame 0 válido | AUTO |
-| T-07 | Macro larga | 1000+ inputs | Sin pérdida; orden preservado | PENDIENTE |
-| T-08 | Archivo truncado | bytes parciales | `fromFile()` retorna nullptr, no crashea | CÓDIGO (try/catch) |
+| T-07 | Macro larga | 1000+ inputs | Sin pérdida; orden preservado | AUTO (round-trip 1500) |
+| T-08 | Archivo truncado | bytes parciales | `fromFile()` retorna nullptr, no crashea | AUTO (lanza y se captura) |
 | T-09 | Frames no monotónicos | 100, 50, 75 | Se ordenan; sin retrocesos | AUTO |
 | T-10 | Botón fuera de rango | botón 99 | Se conserva sin corromper dedupe | AUTO |
 | T-11 | `minHoldFrames`/`minGapFrames` | valores > 0 | **NUNCA** modifican `in.frame` | AUTO |

@@ -50,14 +50,22 @@ every push and on manual dispatch (Actions → Build ZBOT-MOBILE → Run workflo
 ## Tests
 
 Pure macro logic (`src/macro_utils.hpp`) has no Geode dependency, so it is unit
-tested in `tests/test_macro_utils.cpp`:
+tested in `tests/test_macro_utils.cpp`. The GDR serialization round-trip is
+tested against the real GDReplayFormat library in `tests/test_gdr_roundtrip.cpp`:
 
 ```sh
+# Pure logic
 g++ -std=c++17 -Wall -Wextra -I src tests/test_macro_utils.cpp -o /tmp/test_macro
 /tmp/test_macro
+
+# GDR round-trip (needs GDReplayFormat headers)
+git clone https://github.com/maxnut/GDReplayFormat /tmp/gdr
+git -C /tmp/gdr checkout 9c32b5529067901418ea6e4dfbd36437dc8712bc
+g++ -std=c++17 -Wall -Wextra -I /tmp/gdr/include tests/test_gdr_roundtrip.cpp -o /tmp/test_gdr
+/tmp/test_gdr
 ```
 
-CI runs these automatically in the **Unit tests** job.
+CI runs both automatically in the **Unit tests** job.
 
 ## Validation status
 

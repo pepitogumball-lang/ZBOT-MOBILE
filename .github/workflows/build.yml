@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   unit-tests:
-    name: Unit tests (logica pura)
+    name: Unit tests (logica pura + round-trip GDR)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,6 +23,19 @@ jobs:
           g++ -std=c++17 -Wall -Wextra -I src \
             tests/test_macro_utils.cpp -o /tmp/test_macro
           /tmp/test_macro
+
+      - name: Clonar GDReplayFormat en el commit fijado
+        run: |
+          set -e
+          git clone https://github.com/maxnut/GDReplayFormat /tmp/gdr
+          git -C /tmp/gdr checkout 9c32b5529067901418ea6e4dfbd36437dc8712bc
+
+      - name: Compilar y ejecutar tests de round-trip GDR
+        run: |
+          set -e
+          g++ -std=c++17 -Wall -Wextra -I /tmp/gdr/include \
+            tests/test_gdr_roundtrip.cpp -o /tmp/test_gdr
+          /tmp/test_gdr
 
   build:
     strategy:
