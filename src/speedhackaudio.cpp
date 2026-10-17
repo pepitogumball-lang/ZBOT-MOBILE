@@ -1,5 +1,6 @@
 #include "GMacro.hpp"
 #include <Geode/modify/FMODAudioEngine.hpp>
+#include <algorithm>
 
 using namespace geode::prelude;
 
@@ -13,9 +14,10 @@ class $modify(zSpeedAudio, FMODAudioEngine) {
     FMODAudioEngine::update(delta);
 
     GMacro* mgr = GMacro::get();
-    float pitch = (mgr->speedHackEnabled && mgr->speedHackAudio)
-      ? static_cast<float>(mgr->speed)
-      : 1.f;
+    float pitch = 1.f;
+    if (mgr->speedHackEnabled && mgr->speedHackAudio && mgr->speed > 0.05) {
+      pitch = std::clamp(static_cast<float>(mgr->speed), 0.5f, 2.0f);
+    }
 
     if (pitch == m_fields->pitch) return;
     m_fields->pitch = pitch;

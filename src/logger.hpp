@@ -45,7 +45,12 @@ public:
     log::debug("[ZBOT/{}] {}", tag, msg);
     if (m_file.is_open()) {
       m_file << line << "\n";
-      m_file.flush();
+      // Flush cada 10 líneas para reducir I/O en Android
+      m_fileLinesSinceFlush++;
+      if (m_fileLinesSinceFlush >= 10) {
+        m_file.flush();
+        m_fileLinesSinceFlush = 0;
+      }
     }
   }
 
@@ -98,6 +103,7 @@ private:
 
   std::mutex m_mtx;
   std::ofstream m_file;
+  int m_fileLinesSinceFlush = 0;
   std::vector<ZLogEntry> m_entries;
   bool m_dirty = false;
 };
