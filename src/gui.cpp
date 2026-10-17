@@ -419,31 +419,18 @@ void GUI::renderMacroTab() {
              "del boton. Evita doble-taps y rebotes raros.");
   }
 
-  ImGui::TextDisabled("Espaciado anti-spam (frames):");
+  ImGui::TextDisabled("Espaciado anti-spam (frames): (sin efecto en v1.8.0)");
+  ImGui::BeginDisabled();
   ImGui::SetNextItemWidth(120.f);
-  if (ImGui::InputInt("Min hold##sp", &mgr->minHoldFrames, 1, 4)) {
-    if (mgr->minHoldFrames < GMACRO_HOLD_MIN) mgr->minHoldFrames = GMACRO_HOLD_MIN;
-    if (mgr->minHoldFrames > GMACRO_HOLD_MAX) mgr->minHoldFrames = GMACRO_HOLD_MAX;
-    qDirty = true;
-  }
-  if (ImGui::IsItemHovered()) {
-    ImGui::SetTooltip("Fuerza que cada pulsacion se mantenga al menos\n"
-             "este numero de frames antes de soltarse.\n"
-             "Evita que GD ignore pulsaciones muy rapidas.\n"
-             "Por defecto: 1");
-  }
+  ImGui::InputInt("Min hold##sp", &mgr->minHoldFrames, 1, 4);
   ImGui::SameLine();
   ImGui::SetNextItemWidth(120.f);
-  if (ImGui::InputInt("Min gap##sp", &mgr->minGapFrames, 1, 4)) {
-    if (mgr->minGapFrames < GMACRO_GAP_MIN) mgr->minGapFrames = GMACRO_GAP_MIN;
-    if (mgr->minGapFrames > GMACRO_GAP_MAX) mgr->minGapFrames = GMACRO_GAP_MAX;
-    qDirty = true;
-  }
-  if (ImGui::IsItemHovered()) {
-    ImGui::SetTooltip("Fuerza al menos este numero de frames entre\n"
-             "pulsaciones consecutivas del mismo boton.\n"
-             "Por defecto: 1");
-  }
+  ImGui::InputInt("Min gap##sp", &mgr->minGapFrames, 1, 4);
+  ImGui::EndDisabled();
+  ImGui::TextDisabled(
+    "Desactivado: desplazar frames rompia la sincronizacion\n"
+    "frame-perfecta entre grabar y reproducir, asi que ese\n"
+    "comportamiento se elimino. Se conserva por compatibilidad.");
 
   if (qDirty) mgr->saveSettings();
 
