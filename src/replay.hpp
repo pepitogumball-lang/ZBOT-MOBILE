@@ -3,6 +3,7 @@
 
 #include <Geode/Geode.hpp>
 #include <gdr/gdr.hpp>
+#include "macro_utils.hpp"
 #include <fstream>
 #include <filesystem>
 #include <vector>
@@ -14,6 +15,8 @@
 #include <ctime>
 #include <cstdint>
 #include <climits>
+#include <stdexcept>
+#include <exception>
 
 using namespace geode::prelude;
 
@@ -41,44 +44,29 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
   }
 
   void cleanInputs(int minHoldFrames = 0, int minGapFrames = 0) {
+    // minHoldFrames/minGapFrames ya NO desplazan frames: hacerlo rompía la
+    // sincronización frame-perfecta entre grabación y reproducción. Se
+    // conservan en la firma por compatibilidad, pero no se usan.
+    (void)minHoldFrames;
+    (void)minGapFrames;
+
     if (inputs.empty()) return;
 
-    std::stable_sort(inputs.begin(), inputs.end(),
-      [](const zInput& a, const zInput& b) {
-        return a.frame < b.frame;
-      });
-
-    int held[2][8];
-    for (int p = 0; p < 2; ++p)
-      for (int b = 0; b < 8; ++b)
-        held[p][b] = -1;
-
-    std::vector<zInput> cleaned;
-    cleaned.reserve(inputs.size());
-
-    for (auto const& in : inputs) {
-      int p = in.player2 ? 1 : 0;
-      int b = in.button;
-      if (b < 0 || b >= 8) {
-        cleaned.push_back(in);
-        continue;
-      }
-      int prev = held[p][b];
-      int now = in.down ? 1 : 0;
-      if (prev == now) continue; // no-op
-      held[p][b] = now;
-      cleaned.push_back(in);
-    }
-
-    // Nota: minHoldFrames/minGapFrames ya no desplazan frames aquí. El
-    // desplazamiento se eliminó porque rompía la sincronización
-    // frame-perfecta entre grabación y reproducción. cleanInputs solo
-    // filtra duplicados y ordena por frame.
-    inputs = std::move(cleaned);
+    zmacro::sortByFrame(inputs);
+    zmacro::dedupeNoOps(inputs);
   }
 
   bool save(int minHoldFrames = 0, int minGapFrames = 0) {
-    author = GJAccountManager::get()->m_username;
+    // Autor: usar el nombre de cuenta si está disponible; si no, cadena vacía.
+    if (auto* acc = GJAccountManager::get()) {
+      author = acc->m_username;
+    }
+
+    if (name.empty()) {
+      geode::log::warn("zReplay::save: nombre de macro vacío, no se guarda");
+      return false;
+    }
+
     cleanInputs(minHoldFrames, minGapFrames);
     duration = inputs.size() > 0
       ? static_cast<float>(inputs.back().frame) / static_cast<float>(framerate)
@@ -121,46 +109,72 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
   }
 
   static zReplay* fromFile(const std::string& fileName) {
-    auto dir = macrosDir();
-    std::error_code ec;
-    if (std::filesystem::exists(dir, ec) || std::filesystem::create_directories(dir, ec)) {
-      std::ifstream f(dir / (fileName + ".gdr"), std::ios::binary);
-
-      if (!f.is_open()) {
-        f = std::ifstream(dir / fileName, std::ios::binary);
-        if (!f.is_open()) return nullptr;
-      }
-
-      f.seekg(0, std::ios::end);
-      auto pos = f.tellg();
-      f.seekg(0, std::ios::beg);
-
-      constexpr std::streamoff kMaxMacroBytes = 64ll * 1024ll * 1024ll;
-      if (pos < 0 || pos > kMaxMacroBytes) {
-        geode::log::warn("zReplay::fromFile: bad size {} for {}",
-          static_cast<long long>(pos), fileName);
-        return nullptr;
-      }
-      auto size = static_cast<std::size_t>(pos);
-
-      std::vector<uint8_t> data(size);
-      f.read(reinterpret_cast<char*>(data.data()),
-          static_cast<std::streamsize>(size));
-      if (!f.good() && !f.eof()) {
-        geode::log::warn("zReplay::fromFile: read failed for {}",
-          fileName);
-        return nullptr;
-      }
-      f.close();
-
-      zReplay* ret = new zReplay();
-      *ret = importData(data);
-      ret->name = fileName;
-
-      return ret;
+    // Rechazar nombres con separadores o traversal por seguridad.
+    if (fileName.empty() || fileName.find('/') != std::string::npos
+        || fileName.find('\\') != std::string::npos
+        || fileName.find("..") != std::string::npos) {
+      geode::log::warn("zReplay::fromFile: nombre inválido '{}'", fileName);
+      return nullptr;
     }
 
-    return nullptr;
+    auto dir = macrosDir();
+    std::error_code ec;
+    if (!std::filesystem::exists(dir, ec)) {
+      std::filesystem::create_directories(dir, ec);
+      return nullptr;
+    }
+
+    std::ifstream f(dir / (fileName + ".gdr"), std::ios::binary);
+    if (!f.is_open()) {
+      f = std::ifstream(dir / fileName, std::ios::binary);
+      if (!f.is_open()) return nullptr;
+    }
+
+    f.seekg(0, std::ios::end);
+    auto pos = f.tellg();
+    f.seekg(0, std::ios::beg);
+
+    constexpr std::streamoff kMaxMacroBytes = 64ll * 1024ll * 1024ll;
+    if (pos <= 0 || pos > kMaxMacroBytes) {
+      geode::log::warn("zReplay::fromFile: tamaño inválido {} para {}",
+        static_cast<long long>(pos), fileName);
+      return nullptr;
+    }
+    auto size = static_cast<std::size_t>(pos);
+
+    std::vector<uint8_t> data(size);
+    f.read(reinterpret_cast<char*>(data.data()),
+        static_cast<std::streamsize>(size));
+    if (!f.good() && !f.eof()) {
+      geode::log::warn("zReplay::fromFile: fallo de lectura para {}", fileName);
+      return nullptr;
+    }
+    f.close();
+
+    // importData lanza excepciones con datos corruptos/truncados. Nunca debe
+    // tirar el juego: se captura y se devuelve nullptr.
+    zReplay* ret = nullptr;
+    try {
+      ret = new zReplay();
+      *ret = importData(data);
+    } catch (std::exception const& e) {
+      geode::log::warn("zReplay::fromFile: archivo corrupto '{}': {}",
+        fileName, e.what());
+      delete ret;
+      return nullptr;
+    } catch (...) {
+      geode::log::warn("zReplay::fromFile: archivo corrupto '{}' (excepción)",
+        fileName);
+      delete ret;
+      return nullptr;
+    }
+
+    if (!ret) return nullptr;
+
+    // Normalizar: ordenar por frame para garantizar monotonicidad en playback.
+    zmacro::sanitize(ret->inputs);
+    ret->name = fileName;
+    return ret;
   }
 
   static std::vector<std::string> listSaved() {
@@ -252,6 +266,12 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
 // File management and cleanup
   static bool deleteByName(const std::string& fileName) {
     if (fileName.empty()) return false;
+    if (fileName.find('/') != std::string::npos
+        || fileName.find('\\') != std::string::npos
+        || fileName.find("..") != std::string::npos) {
+      geode::log::warn("zReplay::deleteByName: nombre inválido '{}'", fileName);
+      return false;
+    }
     auto dir = macrosDir();
     std::error_code ec;
     bool ok = std::filesystem::remove(dir / (fileName + ".gdr"), ec);
@@ -263,12 +283,11 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
 
 // Replay data manipulation methods
   void purgeAfter(int frame) {
-    inputs.erase(std::remove_if(inputs.begin(), inputs.end(), [frame](const zInput& input) {
-      return input.frame >= frame;
-    }), inputs.end());
+    zmacro::purgeAfterFrame(inputs, frame);
   }
 
   void addInput(int frame, int button, bool player2, bool down) {
+    if (frame < 0) frame = 0;
     inputs.emplace_back(frame, button, player2, down);
   }
 };
