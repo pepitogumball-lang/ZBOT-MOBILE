@@ -298,7 +298,7 @@ void GUI::renderHomeTab() {
               "Frame Advance: ON (nivel pausado)");
     auto* pl = PlayLayer::get();
     if (pl) {
-      int curFrame = static_cast<int>(pl->m_gameState.m_totalFrames);
+      int curFrame = pl->m_currentStep;
       ImGui::Text("Frame actual: %d", curFrame);
     } else {
       ImGui::TextDisabled("Entra a un nivel para empezar.");

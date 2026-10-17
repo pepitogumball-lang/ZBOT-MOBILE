@@ -51,7 +51,7 @@ class $modify(zRecGJBGL, GJBaseGameLayer) {
     bool p2 = !p1 && m_levelSettings && m_levelSettings->m_twoPlayerMode
          && this->m_gameState.m_isDualMode;
     
-    int frame = static_cast<int>(this->m_gameState.m_totalFrames);
+    int frame = m_currentStep;
     
     if (!shouldRecord(mgr, down, button, p2, frame)) return;
 
@@ -96,7 +96,7 @@ class $modify(zRecPL, PlayLayer) {
     GMacro* mgr = GMacro::get();
     if (mgr->state != RECORD || !mgr->currentReplay) return;
 
-    int frame = static_cast<int>(this->m_gameState.m_totalFrames);
+    int frame = m_currentStep;
     mgr->currentReplay->purgeAfter(frame);
 
     mgr->resetButtonStateAfterFrame(frame);
