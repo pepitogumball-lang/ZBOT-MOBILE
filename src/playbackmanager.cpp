@@ -44,8 +44,10 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
       bool epochChanged  = (m_fields->lastEpoch != mgr->playbackEpoch);
 // Consistency checks for playback state
       bool replayChanged = (m_fields->lastReplay != mgr->currentReplay);
+      bool justLoaded = mgr->justLoaded;
 
-      if (epochChanged || replayChanged) {
+      if (epochChanged || replayChanged || justLoaded) {
+        if (justLoaded) mgr->justLoaded = false;
         m_fields->lastEpoch   = mgr->playbackEpoch;
         m_fields->lastReplay  = mgr->currentReplay;
         m_fields->currIndex   = 0;
@@ -60,9 +62,9 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
 
 // Handle mid-level playback synchronization
         bool isMidLevelJoin = inLevel
-          && pl->m_currentCheckpoint != nullptr
+          && (pl->m_currentCheckpoint != nullptr || frame > 2)
           && frame > 1;
-        if (isMidLevelJoin) {
+        if (isMidLevelJoin || justLoaded) {
           auto& inputs = mgr->currentReplay->inputs;
           while (m_fields->currIndex < (int)inputs.size() &&
               inputs[m_fields->currIndex].frame < frame) {
