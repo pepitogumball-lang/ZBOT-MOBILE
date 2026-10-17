@@ -39,12 +39,19 @@ checkpoints y modo dual fue diseñado estudiando estos bots de la comunidad, a l
 acreditamos íntegramente:
 
 - **Eclipse Menu** — formato GDR2, enfoque de reproducción "robust practice fix", UI de
-  icono flotante para móvil.
-- **xdBot** (ZiLko) — comportamiento clásico de bot, clickbot y errores de sincronización
-  que conviene evitar.
+  icono flotante para móvil, y la etiqueta `frameReal` (`m_levelTime × TPS`) junto con
+  `TPSBypass`, que confirman que el índice de frames debe derivarse del **tiempo** de juego.
+- **xdBot** (ZiLko) — comportamiento clásico de bot, clickbot y errores de sincronización que
+  conviene evitar. En particular, su índice de frames nativo (`m_levelTime × getTPS()`) es
+  **independiente de la velocidad**, base de nuestro arreglo del desync con speedhack, y su
+  *clock speedhack* (que escala el `dt` del scheduler) es el método que replicamos.
 - **zBot** (FigmentBoy) — practice mode, frame advance, speedhack.
-- **Silicate** — contadores de frame, diferencia entre editor y nivel, checkpoints.
-- **OpenHack / Zephyrus** (Prevter) — escalado automático de UI según resolución.
+- **Silicate** — contadores de frame, diferencia entre editor y nivel, checkpoints. Su
+  contador de bot (`m_currentProgress / 2`) fijó la escala exacta de `m_currentProgress`
+  frente al tiempo.
+- **OpenHack / Zephyrus** (Prevter) — escalado automático de UI según resolución; su motor
+  de replay indexa los frames como `m_levelTime × 240`, un diseño directamente análogo que
+  usamos como contraste.
 - **EclipseMenu-Modification** (Rustring) — estructura de recorder/replay.
 - **macro-tools** (gmd) — catálogo comparativo de bots y formatos.
 
