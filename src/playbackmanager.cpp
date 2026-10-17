@@ -200,3 +200,32 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
     }
   }
 };
+
+class $modify(zPlayPL, PlayLayer) {
+  void resetLevel() {
+    PlayLayer::resetLevel();
+
+    GMacro* mgr = GMacro::get();
+    auto* self = static_cast<GJBaseGameLayer*>(this);
+    auto* playLayer = PlayLayer::get();
+
+    if (mgr->state == PLAYBACK && mgr->currentReplay && playLayer == this) {
+      auto& f = self->m_fields;
+      f->lastEpoch = mgr->playbackEpoch;
+      f->lastReplay = mgr->currentReplay;
+      f->currIndex = 0;
+      f->clickBotIndex = 0;
+      f->lastSeenFrame = -1;
+      f->sameFrameCount = 0;
+      f->warnedStuck = false;
+
+      int frame = self->m_currentStep + mgr->frameOffset;
+      auto& inputs = mgr->currentReplay->inputs;
+      while (f->currIndex < (int)inputs.size() &&
+             inputs[f->currIndex].frame < frame) {
+        f->currIndex++;
+      }
+      f->clickBotIndex = f->currIndex;
+    }
+  }
+};
