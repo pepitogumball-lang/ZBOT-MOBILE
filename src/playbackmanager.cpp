@@ -59,11 +59,17 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
         m_fields->currIndex   = 0;
         m_fields->clickBotIndex = 0; // Removed: ghost flag
 
+        // `step` vs `prog` + `hasCheckpoint` es la combinación decisiva para B-01:
+        // si al aparecer desde un checkpoint `prog` y `step` difieren, el cursor
+        // debe realinearse contra `m_currentProgress` (miembro de GJGameState, que
+        // es el estado que CheckpointObject restaura).
         ZLOG_INFO("EPOCH", "cursor reset"
            " | frame=" << frame
            << " | inLevel=" << inLevel
            << " | inputs=" << mgr->currentReplay->inputs.size()
            << " | hasCheckpoint=" << (inLevel && pl->m_currentCheckpoint != nullptr)
+           << " | step=" << m_currentStep
+           << " prog=" << m_gameState.m_currentProgress
            << " | epoch=" << mgr->playbackEpoch);
 
 // Handle mid-level playback synchronization
@@ -108,12 +114,19 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
         // primeros 24 de cada epoch (lo justo para diagnosticar el clásico
         // "primer salto perdido") y después 1 de cada 100.
         if (m_fields->currIndex < 24 || (m_fields->currIndex % 100) == 0) {
+          // `step` vs `prog` es el diagnóstico de B-01: permite confirmar en el
+          // dispositivo si GJBaseGameLayer::m_currentStep y
+          // GJGameState::m_currentProgress coinciden o divergen (p. ej. al
+          // reaparecer desde un checkpoint, ya que GJGameState es el estado que
+          // CheckpointObject guarda y restaura).
           ZLOG_INFO("PLAYBACK", "FIRE"
              " frame=" << input.frame
              << " btn=" << input.button
              << " down=" << input.down
              << " p2=" << input.player2
              << " | curFrame=" << frame
+             << " | step=" << m_currentStep
+             << " prog=" << m_gameState.m_currentProgress
              << " | idx=" << (m_fields->currIndex));
         }
         #ifdef GEODE_IS_MOBILE

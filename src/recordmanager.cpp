@@ -72,9 +72,13 @@ class $modify(zRecGJBGL, GJBaseGameLayer) {
       button, p2, down
     );
 
+    // `step` vs `prog`: ver el comentario en el log FIRE de playbackmanager.cpp
+    // (diagnóstico B-01, divergence entre contadores al reaparecer).
     ZLOG_INFO("RECORD", (down ? "◢" : "◤") 
       << (p2 ? "P2" : "P1") 
       << " | frame=" << (frame)
+      << " | step=" << m_currentStep
+      << " prog=" << m_gameState.m_currentProgress
       << " | btn=" << button);
   }
 

@@ -31,5 +31,21 @@ tests unitarios. El comportamiento en juego se valida manualmente (ver `docs/MAC
 
 ## Créditos
 
-Mantenido por **pepitogumball-lang**. Gracias al equipo del Geode SDK y a los creadores
-del formato GDR.
+Mantenido por **pepitogumball-lang**.
+
+Gracias al equipo del **Geode SDK** y a **maxnut** por el formato **GDR**
+(GDReplayFormat). El comportamiento de grabación, reproducción, sincronización de frames,
+checkpoints y modo dual fue diseñado estudiando estos bots de la comunidad, a los que
+acreditamos íntegramente:
+
+- **Eclipse Menu** — formato GDR2, enfoque de reproducción "robust practice fix", UI de
+  icono flotante para móvil.
+- **xdBot** (ZiLko) — comportamiento clásico de bot, clickbot y errores de sincronización
+  que conviene evitar.
+- **zBot** (FigmentBoy) — practice mode, frame advance, speedhack.
+- **Silicate** — contadores de frame, diferencia entre editor y nivel, checkpoints.
+- **OpenHack / Zephyrus** (Prevter) — escalado automático de UI según resolución.
+- **EclipseMenu-Modification** (Rustring) — estructura de recorder/replay.
+- **macro-tools** (gmd) — catálogo comparativo de bots y formatos.
+
+A todos ellos: gracias. El detalle está en `CREDITS.md`.
