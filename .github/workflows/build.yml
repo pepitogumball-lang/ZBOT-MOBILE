@@ -16,8 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.ZBOT_GITHUB_PAT }}
 
       - name: Compilar y ejecutar tests de macro_utils
         run: |
