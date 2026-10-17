@@ -116,8 +116,25 @@ void GUI::renderFloatingBall() {
 
   ImGuiIO& io = ImGui::GetIO();
 
-  ballPos.x = std::max(0.f, std::min(ballPos.x, io.DisplaySize.x - kBallSize));
-  ballPos.y = std::max(0.f, std::min(ballPos.y, io.DisplaySize.y - kBallSize));
+  // Safe area offset para Android (notch, barra de sistema)
+  float safeLeft = 0.f, safeTop = 0.f, safeRight = 0.f, safeBottom = 0.f;
+#ifdef GEODE_IS_ANDROID
+  if (auto* scene = cocos2d::CCDirector::sharedDirector()->getRunningScene()) {
+    if (auto* safeArea = scene->getChildByTag(999)) {
+      (void)safeArea;
+    }
+    // Asumimos un margen mínimo razonable en Android
+    safeLeft = 8.f; safeTop = 8.f; safeRight = 8.f; safeBottom = 8.f;
+  }
+#endif
+
+  float minVisibleX = safeLeft;
+  float minVisibleY = safeTop;
+  float maxVisibleX = io.DisplaySize.x - kBallSize - safeRight;
+  float maxVisibleY = io.DisplaySize.y - kBallSize - safeBottom;
+
+  ballPos.x = std::max(minVisibleX, std::min(ballPos.x, maxVisibleX));
+  ballPos.y = std::max(minVisibleY, std::min(ballPos.y, maxVisibleY));
 
   ImGui::SetNextWindowPos(ballPos, ImGuiCond_Always);
   ImGui::SetNextWindowSize(ImVec2(kBallSize, kBallSize), ImGuiCond_Always);
@@ -231,8 +248,13 @@ void GUI::renderStateSwitcher() {
   ImGui::SameLine();
   if (ImGui::RadioButton("Record", &currentState, RECORD)) {
     mgr->state = RECORD;
-    if (PlayLayer::get()) {
-      mgr->createNewReplay(PlayLayer::get()->m_level);
+    auto* pl = PlayLayer::get();
+    if (pl && pl->m_level) {
+      mgr->createNewReplay(pl->m_level);
+      resetDedupeState(mgr);
+    } else {
+      mgr->state = NONE;
+      Notification::create("No hay nivel activo", NotificationIcon::Warning, 1.5f)->show();
     }
   }
   ImGui::SameLine();
@@ -516,7 +538,6 @@ void GUI::renderMacroTab() {
       mgr->currentReplay = r;
       mgr->state = PLAYBACK;
       mgr->requestPlaybackRestart();
-      mgr->ignoreInput = false;
       mgr->justLoaded = true;
       std::strncpy(mgr->loadName, n.c_str(),
              IM_ARRAYSIZE(mgr->loadName) - 1);

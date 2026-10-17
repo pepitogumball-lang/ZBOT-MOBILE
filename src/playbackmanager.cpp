@@ -19,6 +19,7 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
     bool spamHeld[2]  = { false, false };
     int spamAnchor  = -1;
     bool spamWasOn   = false;
+    int framesWithoutProgress = 0; // guarda cuántos frames sin que el cursor avance
   };
 
 // Core playback and spam logic loop
@@ -88,6 +89,26 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
         GJBaseGameLayer::handleButton(input.down, input.button, !input.player2);
       }
 
+      // Guardia contra cursor atascado: si el cursor no avanza durante
+      // muchos frames en PLAYBACK, algo está mal (frame advance sin avance,
+      // juego pausado, etc.). Se resetea para evitar bloqueo permanente.
+      int cursorBefore = m_fields->currIndex;
+      if (m_fields->currIndex > cursorBefore) {
+        m_fields->framesWithoutProgress = 0;
+      } else if (mgr->state == PLAYBACK && mgr->currentReplay
+                 && !mgr->currentReplay->inputs.empty()) {
+        m_fields->framesWithoutProgress++;
+        if (m_fields->framesWithoutProgress > 120) { // ~2s a 60 FPS
+          ZLOG_WARN("PLAYBACK", "cursor atascado, reseteando"
+             " | frame=" << frame
+             << " | currIndex=" << m_fields->currIndex
+             << " | totalInputs=" << mgr->currentReplay->inputs.size());
+          m_fields->currIndex = 0;
+          m_fields->clickBotIndex = 0;
+          m_fields->framesWithoutProgress = 0;
+        }
+      }
+
       if (frame % 60 == 0) {
         int remaining = (int)inputs.size() - m_fields->currIndex;
         auto lvl = (remaining == 0 && !inputs.empty())
@@ -99,9 +120,10 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
           + " remaining=" + std::to_string(remaining));
       }
 
-      int offset = static_cast<int>(mgr->currentReplay->framerate * 0.1);
+      // Clickbot: reproducir sonido en el mismo frame del input (sin offset)
+      // para que el audio coincida con la acción visual.
       while (m_fields->clickBotIndex < (int)inputs.size() &&
-          inputs[m_fields->clickBotIndex].frame <= frame + offset) {
+          inputs[m_fields->clickBotIndex].frame <= frame) {
         auto click = inputs[m_fields->clickBotIndex++];
         if (mgr->clickbotEnabled) {
           mgr->playSound(click.player2, click.button, click.down);
@@ -112,10 +134,9 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
       m_fields->lastReplay = mgr->currentReplay;
     }
 
-    bool runParent = !mgr->ignoreInput;
-    if (runParent) {
-      GJBaseGameLayer::processCommands(dt, isHalfTick, isLastTick);
-    }
+    // Siempre ejecutar el processCommands original para evitar congelar el juego.
+    // ignoreInput se eliminó: nunca debe bloquear la lógica del motor.
+    GJBaseGameLayer::processCommands(dt, isHalfTick, isLastTick);
 
     //
     if (mgr->spamEnabled && inLevel) {

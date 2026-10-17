@@ -34,11 +34,10 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
   zReplay() : Replay("G-Macro-Android", "2.0.0") {}
 
   static std::filesystem::path macrosDir() {
-#ifdef GEODE_IS_ANDROID
-    return std::filesystem::path("/storage/emulated/0/Android/media/com.geode.launcher/game/geode/macros");
-#else
+    // Usar el save dir de Geode en todas las plataformas, incluido Android.
+    // Esto evita problemas con scoped storage en Android 10+ donde la ruta
+    // hardcodeada /storage/emulated/0/... puede no ser accesible.
     return geode::prelude::Mod::get()->getSaveDir() / "macros";
-#endif
   }
 
   void cleanInputs(int minHoldFrames = 0, int minGapFrames = 0) {
@@ -71,40 +70,11 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
       cleaned.push_back(in);
     }
 
-    if (minHoldFrames > 0 || minGapFrames > 0) {
-      int lastPress [2][8];
-      int lastRelease[2][8];
-      for (int p = 0; p < 2; ++p)
-        for (int b = 0; b < 8; ++b) {
-          lastPress[p][b]  = INT_MIN / 2;
-          lastRelease[p][b] = INT_MIN / 2;
-        }
-
-      for (auto& in : cleaned) {
-        int p = in.player2 ? 1 : 0;
-        int b = in.button;
-        if (b < 0 || b >= 8) continue;
-
-        if (in.down) {
-          int minF = lastRelease[p][b] + minGapFrames;
-          if (in.frame < minF) in.frame = minF;
-          lastPress[p][b] = in.frame;
-        } else {
-          int minF = lastPress[p][b] + minHoldFrames;
-          if (in.frame < minF) in.frame = minF;
-          lastRelease[p][b] = in.frame;
-        }
-      }
-
-      std::stable_sort(cleaned.begin(), cleaned.end(),
-        [](const zInput& a, const zInput& b) {
-          return a.frame < b.frame;
-        });
-    }
-
-    inputs = std::move(cleaned);
-  }
-
+  // minHoldFrames y minGapFrames se aplican en el momento de la grabación
+  // (recordmanager.cpp), nunca se modifican los frames al serializar.
+  // cleanInputs solo filtra duplicados y ordena por frame.
+  // (La sección anterior que desplazaba frames se eliminó: rompe la
+  //  sincronización frame-perfecta entre grabación y reproducción.)
   bool save(int minHoldFrames = 0, int minGapFrames = 0) {
     author = GJAccountManager::get()->m_username;
     cleanInputs(minHoldFrames, minGapFrames);

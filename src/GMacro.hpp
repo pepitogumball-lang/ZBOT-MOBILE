@@ -1,7 +1,7 @@
 #ifndef _zbot_hpp
 #define _zbot_hpp
 
-#define GMACRO_VERSION "v1.7.0"
+#define GMACRO_VERSION "v1.8.0"
 
 #include <Geode/Geode.hpp>
 #include "replay.hpp"
@@ -20,10 +20,6 @@ public:
   zState state = NONE;
   bool fmodified = false;
   bool justLoaded = false;
-
-
-
-  bool ignoreInput = false;
 
   bool frameAdvance = false;
   bool doAdvance  = false;
@@ -71,6 +67,12 @@ public:
 
   bool p1ButtonHeld[8] = { false };
   bool p2ButtonHeld[8] = { false };
+
+  // Estado de deduplicación de grabación (miembros en lugar de variables static de archivo)
+  int  dedupeLastFrame   = -1;
+  bool dedupeLastDown    = false;
+  int  dedupeLastButton  = -1;
+  bool dedupeLastP2      = false;
 
   //
   char loadName[128] = "";

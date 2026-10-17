@@ -9,16 +9,13 @@
 
 using namespace geode::prelude;
 
-static int s_lastFrame = -1;
-static bool s_lastDown = false;
-static int s_lastButton = -1;
-static bool s_lastP2 = false;
-
-static bool shouldRecord(GMacro* mgr, bool down, int button, bool p2, int frame) {
-  if (frame == s_lastFrame && down == s_lastDown && button == s_lastButton && p2 == s_lastP2) {
+bool shouldRecord(GMacro* mgr, bool down, int button, bool p2, int frame) {
+  // Deduplicación exacta: mismo frame, misma tecla, mismo jugador, mismo estado = evento duplicado
+  if (frame == mgr->dedupeLastFrame && down == mgr->dedupeLastDown
+      && button == mgr->dedupeLastButton && p2 == mgr->dedupeLastP2) {
     return false;
   }
-  
+
   if (mgr->dedupeInputs) {
     if (button >= 0 && button <= 7) { // incluir boton 0 por si acaso
       bool& held = p2 ? mgr->p2ButtonHeld[button] : mgr->p1ButtonHeld[button];
@@ -27,18 +24,18 @@ static bool shouldRecord(GMacro* mgr, bool down, int button, bool p2, int frame)
     }
   }
 
-  s_lastFrame = frame;
-  s_lastDown = down;
-  s_lastButton = button;
-  s_lastP2 = p2;
+  mgr->dedupeLastFrame   = frame;
+  mgr->dedupeLastDown    = down;
+  mgr->dedupeLastButton  = button;
+  mgr->dedupeLastP2      = p2;
   return true;
 }
 
-void resetDedupeState() {
-  s_lastFrame = -1;
-  s_lastDown = false;
-  s_lastButton = -1;
-  s_lastP2 = false;
+void resetDedupeState(GMacro* mgr) {
+  mgr->dedupeLastFrame   = -1;
+  mgr->dedupeLastDown    = false;
+  mgr->dedupeLastButton  = -1;
+  mgr->dedupeLastP2      = false;
 }
 
 class $modify(zRecGJBGL, GJBaseGameLayer) {
@@ -76,7 +73,7 @@ class $modify(zRecPL, PlayLayer) {
 
     if (mgr->state == RECORD) {
       mgr->createNewReplay(lvl);
-      resetDedupeState(); // resetear para que no se coma el primer click
+      resetDedupeState(mgr); // resetear para que no se coma el primer click
     }
 
     if (mgr->state == PLAYBACK) {
