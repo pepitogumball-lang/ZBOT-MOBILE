@@ -140,7 +140,7 @@ class $modify(zRecPL, PlayLayer) {
     if (mgr->state == RECORD && mgr->currentReplay) {
       mgr->levelCompleted = true;
       if (mgr->autoSave) {
-        bool ok = mgr->currentReplay->save(mgr->minHoldFrames, mgr->minGapFrames);
+        bool ok = mgr->currentReplay->save(mgr->minHoldFrames, mgr->minGapFrames, mgr->dedupeInputs);
         if (ok) {
           mgr->autoSavedThisRun = true;
           Notification::create("Macro perfecto guardado",
@@ -166,7 +166,7 @@ class $modify(zRecPL, PlayLayer) {
     if (mgr->state == RECORD && mgr->currentReplay && mgr->autoSave
       && !mgr->autoSavedThisRun) {
       if (!mgr->perfectRunOnly || mgr->levelCompleted) {
-        bool ok = mgr->currentReplay->save(mgr->minHoldFrames, mgr->minGapFrames);
+        bool ok = mgr->currentReplay->save(mgr->minHoldFrames, mgr->minGapFrames, mgr->dedupeInputs);
         if (ok) {
           mgr->autoSavedThisRun = true;
         }

@@ -43,7 +43,7 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
     return geode::prelude::Mod::get()->getSaveDir() / "macros";
   }
 
-  void cleanInputs(int minHoldFrames = 0, int minGapFrames = 0) {
+  void cleanInputs(int minHoldFrames = 0, int minGapFrames = 0, bool dedupe = true) {
     // minHoldFrames/minGapFrames ya NO desplazan frames: hacerlo rompía la
     // sincronización frame-perfecta entre grabación y reproducción. Se
     // conservan en la firma por compatibilidad, pero no se usan.
@@ -52,11 +52,13 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
 
     if (inputs.empty()) return;
 
+    // Ordenar siempre es seguro y necesario para el playback.
     zmacro::sortByFrame(inputs);
-    zmacro::dedupeNoOps(inputs);
+    // Deduplicar solo si el usuario lo tiene activado; respeta su elección.
+    if (dedupe) zmacro::dedupeNoOps(inputs);
   }
 
-  bool save(int minHoldFrames = 0, int minGapFrames = 0) {
+  bool save(int minHoldFrames = 0, int minGapFrames = 0, bool dedupe = true) {
     // Autor: usar el nombre de cuenta si está disponible; si no, cadena vacía.
     if (auto* acc = GJAccountManager::get()) {
       author = acc->m_username;
@@ -67,7 +69,7 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
       return false;
     }
 
-    cleanInputs(minHoldFrames, minGapFrames);
+    cleanInputs(minHoldFrames, minGapFrames, dedupe);
     duration = inputs.size() > 0
       ? static_cast<float>(inputs.back().frame) / static_cast<float>(framerate)
       : 0.f;

@@ -368,7 +368,7 @@ void GUI::renderMacroTab() {
       std::string clean = sanitizeName(mgr->loadName);
       if (!clean.empty()) mgr->currentReplay->name = clean;
       bool ok = mgr->currentReplay->save(
-        mgr->minHoldFrames, mgr->minGapFrames);
+        mgr->minHoldFrames, mgr->minGapFrames, mgr->dedupeInputs);
 
       if (ok) {
         std::string savedName = mgr->currentReplay->name;
