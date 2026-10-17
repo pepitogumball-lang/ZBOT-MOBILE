@@ -70,25 +70,60 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
     }
 
     cleanInputs(minHoldFrames, minGapFrames, dedupe);
-    duration = inputs.size() > 0
-      ? static_cast<float>(inputs.back().frame) / static_cast<float>(framerate)
-      : 0.f;
+    updateDuration();
 
-    auto dir = macrosDir();
+    auto path = macrosDir() / (name + ".gdr");
+    return writeBinary(path);
+  }
+
+  // Copia de seguridad periódica durante la grabación.
+  //
+  // Se escribe en "<nombre>.autosave.gdr" (NUNCA en el macro real) para que un
+  // guardado intermedio no pueda pisar un run perfecto ya guardado. El archivo
+  // sigue siendo un .gdr válido, así que aparece en la lista de macros y se
+  // puede replicar si Android mata el juego a mitad de una grabación.
+  bool saveSnapshot(int minHoldFrames = 0, int minGapFrames = 0, bool dedupe = true) {
+    if (auto* acc = GJAccountManager::get()) {
+      author = acc->m_username;
+    }
+
+    if (name.empty()) return false;
+
+    cleanInputs(minHoldFrames, minGapFrames, dedupe);
+    updateDuration();
+    return writeBinary(macrosDir() / (name + ".autosave.gdr"));
+  }
+
+  // Borra la copia de seguridad (al conseguir guardar el run real).
+  static void removeSnapshot(const std::string& snapName) {
+    if (snapName.empty()) return;
+    std::error_code ec;
+    std::filesystem::remove(macrosDir() / (snapName + ".autosave.gdr"), ec);
+  }
+
+  void updateDuration() {
+    duration = (!inputs.empty() && framerate > 0.f)
+      ? static_cast<float>(inputs.back().frame) / framerate
+      : 0.f;
+  }
+
+  // Escribe los datos exportados en 'path'. DRY: lo comparten el guardado
+  // normal y las copias de seguridad.
+  bool writeBinary(const std::filesystem::path& path) {
+    auto dir = path.parent_path();
     std::error_code ec;
     if (!std::filesystem::exists(dir, ec)) {
       std::filesystem::create_directories(dir, ec);
       if (ec) {
-        geode::log::warn("zReplay::save: failed to create dir {}: {}",
+        geode::log::warn("zReplay::writeBinary: failed to create dir {}: {}",
           dir.string(), ec.message());
         return false;
       }
     }
 
-    auto path = dir / (name + ".gdr");
     std::ofstream f(path, std::ios::binary);
     if (!f.is_open()) {
-      geode::log::warn("zReplay::save: failed to open {} for write",
+      geode::log::warn("zReplay::writeBinary: failed to open {} for write",
         path.string());
       return false;
     }
@@ -97,13 +132,14 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
     f.write(reinterpret_cast<const char*>(data.data()),
         static_cast<std::streamsize>(data.size()));
     if (!f.good()) {
-      geode::log::warn("zReplay::save: write failed for {}", path.string());
+      geode::log::warn("zReplay::writeBinary: write failed for {}",
+        path.string());
       f.close();
       return false;
     }
     f.close();
     if (f.fail()) {
-      geode::log::warn("zReplay::save: close/flush failed for {}",
+      geode::log::warn("zReplay::writeBinary: close/flush failed for {}",
         path.string());
       return false;
     }
@@ -172,6 +208,20 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
     }
 
     if (!ret) return nullptr;
+
+    // Algunos GDR traen metadatos rotos (framerate 0, negativo o absurdo).
+    // Eso haría duraciones infinitas y algoritmos derivados del tiempo.
+    // El 240 es el valor por defecto de GDR.
+    if (!(ret->framerate > 0.f) || ret->framerate > 100000.f) {
+      geode::log::warn("zReplay::fromFile: framerate inválido ({}) en '{}', se usa 240",
+        ret->framerate, fileName);
+      ret->framerate = 240.f;
+    }
+    if (ret->framerate > 1000.f) {
+      // Framerate "válido" pero poco realista (2.2 corre a ~60 y los macros se
+      // guardan a 240 TPS). Se limita para que los cálculos no exploten.
+      ret->framerate = 1000.f;
+    }
 
     // Normalizar: ordenar por frame para garantizar monotonicidad en playback.
     zmacro::sanitize(ret->inputs);
@@ -279,6 +329,12 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
     bool ok = std::filesystem::remove(dir / (fileName + ".gdr"), ec);
     if (!ok) {
       ok = std::filesystem::remove(dir / fileName, ec);
+    }
+    // Si existía, borrar también la copia de seguridad del mismo nombre para
+    // que no quede un ".autosave.gdr" huérfano en la lista de macros.
+    if (ok) {
+      std::error_code ec2;
+      std::filesystem::remove(dir / (fileName + ".autosave.gdr"), ec2);
     }
     return ok;
   }

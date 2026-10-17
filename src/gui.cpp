@@ -27,6 +27,11 @@ static std::string sanitizeName(const char* raw) {
   return out;
 }
 
+// Ancho de control expresado en "caracteres" del tamaño de fuente actual.
+// Evita anchos fijos en píxeles que se ven mal cuando la UI se escala en
+// móviles de alta densidad (ver GUI::updateUiScale()).
+static inline float itemW(float chars) { return ImGui::GetFontSize() * chars; }
+
 //
 // EclipseMenu-inspired theme
 //
@@ -50,6 +55,17 @@ void GUI::applyTheme() {
   s.ItemSpacing   = ImVec2(8.f, 7.f);
   s.ItemInnerSpacing = ImVec2(6.f, 6.f);
   s.IndentSpacing  = 18.f;
+
+#ifdef GEODE_IS_MOBILE
+  // Android: el dedo es mucho menos preciso que un ratón.
+  //  * TouchExtraPadding agranda el área reactiva de los widgets (ImGui lo usa
+  //    en el hit-testing; ver ItemHoverable/ButtonBehavior). Se mantiene
+  //    moderado porque, si se pasa, los widgets solapados se roban el toque.
+  //  * Barras de scroll y tiradores más gruesos para poder agarrarlos.
+  s.TouchExtraPadding = ImVec2(6.f, 6.f);
+  s.ScrollbarSize  = 20.0f;
+  s.GrabMinSize   = 20.0f;
+#endif
 
   ImVec4* c = s.Colors;
   auto rgba = [](int r, int g, int b, float a){
@@ -110,11 +126,17 @@ void GUI::applyTheme() {
 //
 // Render the floating overlay button
 void GUI::renderFloatingBall() {
-  constexpr float kBallRadius = 26.f;
-  constexpr float kBallSize  = kBallRadius * 2.f;
-  constexpr float kDragSlop  = 6.f; // pixels before tap becomes drag
-
   ImGuiIO& io = ImGui::GetIO();
+
+  // La bolita es la única entrada en Android (no hay teclado ni atajos). El
+  // tamaño se deriva del tamaño de fuente ya escalado, así que se ve igual de
+  // grande (en centímetros) en cualquier resolución: ~2.4 líneas de diámetro
+  // de radio, es decir un objetivo táctil cómodo. El umbral de arrastre también
+  // escala: unos píxeles fijos son demasiado finos para un dedo en pantallas
+  // de densidad alta.
+  const float kBallRadius = ImGui::GetFontSize() * 2.4f;
+  const float kBallSize   = kBallRadius * 2.f;
+  const float kDragSlop   = std::max(6.f, ImGui::GetFontSize() * 0.5f);
 
   // Safe area offset para Android (notch, barra de sistema).
   // Se aplica un margen mínimo uniforme para que la bolita no quede pegada
@@ -159,11 +181,12 @@ void GUI::renderFloatingBall() {
 
   if (active) {
     ImVec2 delta = io.MouseDelta;
-    if (ballDragging || std::fabs(delta.x) > 0.f || std::fabs(delta.y) > 0.f) {
+    // La bolita solo se mueve cuando el gesto ya es un arrastre: así un toque
+    // (con el micro-movimiento típico de un dedo) no la desplaza sin querer.
+    if (ballDragging) {
       ballPos.x += delta.x;
       ballPos.y += delta.y;
-    }
-    if (ImGui::IsMouseDragging(ImGuiMouseButton_Left, kDragSlop)) {
+    } else if (ImGui::IsMouseDragging(ImGuiMouseButton_Left, kDragSlop)) {
       ballDragging = true;
     }
   }
@@ -188,8 +211,10 @@ void GUI::renderFloatingBall() {
   ImU32 ring = IM_COL32(232, 232, 240, 220);
 
   auto* dl = ImGui::GetWindowDrawList();
+  const float ringW = std::max(1.f, ImGui::GetFontSize() * 0.11f);
+  const float dotR  = std::max(2.f, kBallRadius * 0.13f);
   dl->AddCircleFilled(center, kBallRadius, fill, 32);
-  dl->AddCircle(center, kBallRadius, ring, 32, 2.f);
+  dl->AddCircle(center, kBallRadius, ring, 32, ringW);
 
   const char* label = "Z";
   ImVec2 ts = ImGui::CalcTextSize(label);
@@ -200,16 +225,16 @@ void GUI::renderFloatingBall() {
   if (mgr->state == RECORD) {
     dl->AddCircleFilled(ImVec2(center.x + kBallRadius * 0.65f,
                   center.y - kBallRadius * 0.65f),
-              5.f, IM_COL32(230, 60, 60, 255), 16);
+              dotR, IM_COL32(230, 60, 60, 255), 16);
   } else if (mgr->state == PLAYBACK) {
     dl->AddCircleFilled(ImVec2(center.x + kBallRadius * 0.65f,
                   center.y - kBallRadius * 0.65f),
-              5.f, IM_COL32(80, 220, 120, 255), 16);
+              dotR, IM_COL32(80, 220, 120, 255), 16);
   }
   if (mgr->spamEnabled) {
     dl->AddCircleFilled(ImVec2(center.x - kBallRadius * 0.65f,
                   center.y - kBallRadius * 0.65f),
-              4.f, IM_COL32(180, 150, 255, 255), 16);
+              dotR * 0.85f, IM_COL32(180, 150, 255, 255), 16);
   }
 
   ImGui::End();
@@ -224,13 +249,16 @@ void GUI::renderReplayInfo() {
   GMacro* mgr = GMacro::get();
   if (mgr->currentReplay) {
     ImGui::Text("Replay: %s", mgr->currentReplay->name.c_str());
+    // Guarda contra TPS inválido (un .gdr ajeno podría traer framerate 0):
+    // evita inf/nan en la UI.
+    const float tps = mgr->currentReplay->framerate;
+    const float dur = (!mgr->currentReplay->inputs.empty() && tps > 0.f)
+      ? static_cast<float>(mgr->currentReplay->inputs.back().frame) / tps
+      : 0.f;
     ImGui::Text("Inputs: %zu TPS: %.0f Duration: %.2fs",
           mgr->currentReplay->inputs.size(),
-          mgr->currentReplay->framerate,
-          mgr->currentReplay->inputs.empty()
-            ? 0.f
-            : static_cast<float>(mgr->currentReplay->inputs.back().frame)
-              / static_cast<float>(mgr->currentReplay->framerate));
+          tps,
+          dur);
   } else {
     ImGui::TextDisabled("Sin replay cargado");
   }
@@ -239,11 +267,32 @@ void GUI::renderReplayInfo() {
 // Status check
 void GUI::renderStateSwitcher() {
   GMacro* mgr = GMacro::get();
-  int currentState = (int)mgr->state;
 
-  if (ImGui::RadioButton("Idle", &currentState, NONE)) mgr->state = NONE;
-  ImGui::SameLine();
-  if (ImGui::RadioButton("Record", &currentState, RECORD)) {
+  // En Android no hay teclado ni atajos: estos botones SON el control
+  // principal de la app, así que van a ancho completo y con altura táctil
+  // medida en líneas de texto (≈2.4× la fuente ya escalada) en lugar de los
+  // radio buttons pequeños de escritorio.
+  const float kBtnH = ImGui::GetFontSize() * 2.4f;
+
+  auto modeButton = [&](const char* label, zState target, ImVec4 onCol) {
+    const bool on = (mgr->state == target);
+    if (on) {
+      ImGui::PushStyleColor(ImGuiCol_Button, onCol);
+      ImGui::PushStyleColor(ImGuiCol_ButtonHovered, onCol);
+      ImGui::PushStyleColor(ImGuiCol_ButtonActive, onCol);
+    }
+    const bool clicked = ImGui::Button(label, ImVec2(-1.f, kBtnH));
+    if (on) ImGui::PopStyleColor(3);
+    return clicked;
+  };
+
+  if (modeButton("IDLE  (parar)", NONE,
+      ImVec4(0.34f, 0.34f, 0.44f, 1.f))) {
+    mgr->state = NONE;
+  }
+
+  if (modeButton("GRABAR  (Record)", RECORD,
+      ImVec4(0.55f, 0.22f, 0.28f, 1.f))) {
     // No recrear el replay si ya estamos grabando: tocar "Record" de nuevo
     // (accidentalmente) no debe borrar la grabacion en curso.
     if (mgr->state != RECORD) {
@@ -258,13 +307,16 @@ void GUI::renderStateSwitcher() {
       }
     }
   }
-  ImGui::SameLine();
-  if (ImGui::RadioButton("Playback", &currentState, PLAYBACK)) {
+
+  if (modeButton("REPRODUCIR  (Playback)", PLAYBACK,
+      ImVec4(0.18f, 0.45f, 0.30f, 1.f))) {
     if (mgr->currentReplay) {
       mgr->state = PLAYBACK;
       mgr->requestPlaybackRestart();
     } else {
       mgr->state = NONE;
+      Notification::create("No hay macro cargado",
+        NotificationIcon::Warning, 1.5f)->show();
     }
   }
 }
@@ -307,7 +359,7 @@ void GUI::renderHomeTab() {
     } else {
       ImGui::TextDisabled("Entra a un nivel para empezar.");
     }
-    if (ImGui::Button("Avanzar 1 frame", ImVec2(-1.f, 44.f))) {
+    if (ImGui::Button("Avanzar 1 frame", ImVec2(-1.f, ImGui::GetFontSize() * 2.4f))) {
       mgr->doAdvance = true;
     }
     ImGui::TextDisabled("manten pulsado para ir rapido.");
@@ -413,6 +465,25 @@ void GUI::renderMacroTab() {
     ImGui::SetTooltip("Guarda el macro automaticamente al completar\n"
              "el nivel (y al salir si 'Solo run perfecto' esta off).");
   }
+  if (mgr->autoSave) {
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(itemW(9.f));
+    if (ImGui::InputInt("Solo cada (s)##as", &mgr->autoSaveIntervalSec, 10, 60)) {
+      if (mgr->autoSaveIntervalSec < GMACRO_AUTOSAVE_MIN)
+        mgr->autoSaveIntervalSec = GMACRO_AUTOSAVE_MIN;
+      if (mgr->autoSaveIntervalSec > GMACRO_AUTOSAVE_MAX)
+        mgr->autoSaveIntervalSec = GMACRO_AUTOSAVE_MAX;
+      qDirty = true;
+    }
+    if (ImGui::IsItemHovered()) {
+      ImGui::SetTooltip(
+        "Copia de seguridad mientras grabas: cada N segundos escribe\n"
+        "\"<nombre>.autosave.gdr\" (0 = apagado).\n"
+        "Es un .gdr normal: si Android cierra el juego a mitad de una\n"
+        "grabacion larga, aparece en la lista de macros y lo puedes\n"
+        "replicar. Nunca sobreescribe tu macro guardado.");
+    }
+  }
   qDirty |= ImGui::Checkbox("Deduplicar inputs", &mgr->dedupeInputs);
   if (ImGui::IsItemHovered()) {
     ImGui::SetTooltip("Elimina eventos de input que no cambian el estado\n"
@@ -421,10 +492,10 @@ void GUI::renderMacroTab() {
 
   ImGui::TextDisabled("Espaciado anti-spam (frames): (sin efecto en v1.8.0)");
   ImGui::BeginDisabled();
-  ImGui::SetNextItemWidth(120.f);
+  ImGui::SetNextItemWidth(itemW(6.5f));
   ImGui::InputInt("Min hold##sp", &mgr->minHoldFrames, 1, 4);
   ImGui::SameLine();
-  ImGui::SetNextItemWidth(120.f);
+  ImGui::SetNextItemWidth(itemW(6.5f));
   ImGui::InputInt("Min gap##sp", &mgr->minGapFrames, 1, 4);
   ImGui::EndDisabled();
   ImGui::TextDisabled(
@@ -509,9 +580,11 @@ void GUI::renderMacroTab() {
 
   if (!hasSel) ImGui::BeginDisabled();
 
-  constexpr float kActionHeight = 38.f;
-  constexpr float kDeleteWidth  = 110.f;
-  constexpr float kInnerSpacing = 8.f;
+  // Alto/ancho de los botones de acción en "líneas de texto" para que escalen
+  // con la UI (en móvil son objetivos táctiles, no controles de ratón).
+  const float kActionHeight = ImGui::GetFontSize() * 2.2f;
+  const float kDeleteWidth  = ImGui::GetFontSize() * 6.5f;
+  const float kInnerSpacing = ImGui::GetFontSize() * 0.5f;
 
   if (ImGui::Button("Delete", ImVec2(kDeleteWidth, kActionHeight))) {
     ImGui::OpenPopup("Delete macro?");
@@ -549,7 +622,7 @@ void GUI::renderMacroTab() {
       ImGui::TextDisabled("Ningun macro seleccionado.");
     }
     ImGui::Separator();
-    if (ImGui::Button("Delete", ImVec2(120, 0)) && hasSel) {
+    if (ImGui::Button("Delete", ImVec2(itemW(7.f), 0)) && hasSel) {
       const std::string n = macros[selectedMacro].name;
       if (zReplay::deleteByName(n)) {
         if (mgr->currentReplay && mgr->currentReplay->name == n) {
@@ -568,7 +641,7 @@ void GUI::renderMacroTab() {
       ImGui::CloseCurrentPopup();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+    if (ImGui::Button("Cancel", ImVec2(itemW(7.f), 0))) {
       ImGui::CloseCurrentPopup();
     }
     ImGui::EndPopup();
@@ -624,8 +697,13 @@ void GUI::renderSpeedTab() {
     { "4x",  4.0 },
   };
 
-  for (size_t i = 0; i < sizeof(kPresets) / sizeof(kPresets[0]); ++i) {
-    if (i > 0) ImGui::SameLine();
+  // Presets en rejilla de 4 por fila con tamaño táctil: los SmallButton de
+  // escritorio son demasiado pequeños para un dedo.
+  const float kPresetW = itemW(3.4f);
+  const float kPresetH = ImGui::GetFontSize() * 1.9f;
+  constexpr size_t kPresetCount = sizeof(kPresets) / sizeof(kPresets[0]);
+  for (size_t i = 0; i < kPresetCount; ++i) {
+    if (i % 4 != 0) ImGui::SameLine();
     bool matches = std::fabs(mgr->speed - kPresets[i].value) < 1e-4;
     if (matches) {
       ImGui::PushStyleColor(ImGuiCol_Button,    IM_COL32(170, 140, 255, 230));
@@ -633,7 +711,7 @@ void GUI::renderSpeedTab() {
       ImGui::PushStyleColor(ImGuiCol_ButtonActive, IM_COL32(210, 180, 255, 255));
       ImGui::PushStyleColor(ImGuiCol_Text,     IM_COL32(20, 20, 30, 255));
     }
-    if (ImGui::SmallButton(kPresets[i].label)) {
+    if (ImGui::Button(kPresets[i].label, ImVec2(kPresetW, kPresetH))) {
       mgr->speed = kPresets[i].value;
       mgr->speedHackEnabled = (kPresets[i].value > 0.0);
       spDirty = true;
@@ -645,9 +723,9 @@ void GUI::renderSpeedTab() {
     ImGui::TextDisabled("(speed = 0 -> speedhack inactivo)");
   }
 
-  // Frame offset
+  // Frame offset (con botones +/- para poder ajustarlo sin teclado)
   int offset = mgr->frameOffset;
-  if (ImGui::InputInt("Frame Offset", &offset)) {
+  if (ImGui::InputInt("Frame Offset", &offset, 1, 5)) {
     offset = std::clamp(offset, -10, 10);
     mgr->frameOffset = offset;
     spDirty = true;
@@ -682,7 +760,7 @@ void GUI::renderSpamTab() {
 
   static const char* kButtonLabels[] = { "Saltar", "Izquierda", "Derecha" };
   int btnIdx = std::clamp(mgr->spamButton - 1, 0, 2);
-  ImGui::SetNextItemWidth(160.f);
+  ImGui::SetNextItemWidth(itemW(9.f));
   if (ImGui::Combo("Button", &btnIdx, kButtonLabels, IM_ARRAYSIZE(kButtonLabels))) {
     mgr->spamButton = btnIdx + 1;
     dirty = true;
@@ -691,7 +769,7 @@ void GUI::renderSpamTab() {
   // Player picker
   static const char* kPlayerLabels[] = { "Jugador 1", "Jugador 2", "Ambos" };
   int plIdx = std::clamp(mgr->spamPlayer, 0, 2);
-  ImGui::SetNextItemWidth(160.f);
+  ImGui::SetNextItemWidth(itemW(9.f));
   if (ImGui::Combo("Player", &plIdx, kPlayerLabels, IM_ARRAYSIZE(kPlayerLabels))) {
     mgr->spamPlayer = plIdx;
     dirty = true;
@@ -789,6 +867,33 @@ void GUI::renderSettingsTab() {
   }
 
   ImGui::Spacing();
+  ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "Interfaz");
+  ImGui::Separator();
+  ImGui::Text("Escala UI: %.2fx  (1.00x = automatica)", mgr->uiScaleMul);
+  // Botones en vez de slider: al cambiar la escala cambia el tamaño de TODA la
+  // UI (incluido el propio control), y un slider se movería bajo el dedo.
+  const float kSbH = ImGui::GetFontSize() * 2.0f;
+  if (ImGui::Button("-##uiscale", ImVec2(itemW(3.5f), kSbH))
+      && mgr->uiScaleMul > GMACRO_UI_MUL_MIN) {
+    mgr->uiScaleMul = std::max(GMACRO_UI_MUL_MIN,
+      std::round((mgr->uiScaleMul - 0.05f) * 100.f) / 100.f);
+    stDirty = true;
+  }
+  ImGui::SameLine();
+  if (ImGui::Button("+##uiscale", ImVec2(itemW(3.5f), kSbH))
+      && mgr->uiScaleMul < GMACRO_UI_MUL_MAX) {
+    mgr->uiScaleMul = std::min(GMACRO_UI_MUL_MAX,
+      std::round((mgr->uiScaleMul + 0.05f) * 100.f) / 100.f);
+    stDirty = true;
+  }
+  ImGui::SameLine();
+  if (ImGui::Button("Restablecer##uiscale", ImVec2(-1.f, kSbH))) {
+    mgr->uiScaleMul = 1.0f;
+    stDirty = true;
+  }
+  ImGui::TextDisabled("Sube el valor si el texto se ve pequeno en tu movil.");
+
+  ImGui::Spacing();
   ImGui::TextColored(ImVec4(0.7f, 0.6f, 1.0f, 1.0f), "About");
   ImGui::Separator();
   ImGui::TextWrapped(
@@ -811,22 +916,22 @@ void GUI::renderConsoleTab() {
   ImGui::SameLine();
 
   const char* levels[] = { "ALL", "INFO+", "WARN+", "ERROR" };
-  ImGui::SetNextItemWidth(90.f);
+  ImGui::SetNextItemWidth(itemW(5.5f));
   ImGui::Combo("##lvl", &consoleMinLevel, levels, IM_ARRAYSIZE(levels));
   ImGui::SameLine();
 
   // Text filter
-  ImGui::SetNextItemWidth(120.f);
+  ImGui::SetNextItemWidth(itemW(8.f));
   ImGui::InputText("##filter", consoleFilter, sizeof(consoleFilter));
   if (ImGui::IsItemHovered()) ImGui::SetTooltip("Filter by tag or text");
   ImGui::SameLine();
 
-  if (ImGui::Button(consolePaused ? "Resume" : "Pause", ImVec2(60.f, 0.f)))
+  if (ImGui::Button(consolePaused ? "Resume" : "Pause", ImVec2(itemW(4.5f), 0.f)))
     consolePaused = !consolePaused;
   ImGui::SameLine();
 
   // Clear
-  if (ImGui::Button("Clear", ImVec2(50.f, 0.f)))
+  if (ImGui::Button("Clear", ImVec2(itemW(4.f), 0.f)))
     ZBotLogger::get().clear();
   ImGui::SameLine();
 
@@ -853,7 +958,7 @@ void GUI::renderConsoleTab() {
     return colInfo;
   };
 
-  float footerH = 44.f;
+  float footerH = ImGui::GetFontSize() * 2.6f;
   ImGui::BeginChild("##consolescroll",
            ImVec2(0.f, -footerH),
            false,
@@ -886,7 +991,8 @@ void GUI::renderConsoleTab() {
     if (consoleCopiedTimer <= 0.f) consoleCopied = false;
   }
 
-  ImVec2 btnSize = ImVec2(ImGui::GetContentRegionAvail().x, 36.f);
+  ImVec2 btnSize = ImVec2(ImGui::GetContentRegionAvail().x,
+                          ImGui::GetFontSize() * 2.2f);
   if (consoleCopied) {
     ImGui::PushStyleColor(ImGuiCol_Button,
                ImVec4(0.2f, 0.75f, 0.35f, 1.f));
@@ -905,8 +1011,27 @@ void GUI::renderConsoleTab() {
 // Main panel
 //
 void GUI::renderMainPanel() {
-  ImGui::SetNextWindowSize(ImVec2(460, 600), ImGuiCond_Once);
-  ImGui::SetNextWindowSizeConstraints(ImVec2(360, 400), ImVec2(900, 1400));
+  // Responsive para Android: las pantallas van de 320 a 2600 px de ancho y con
+  // densidades muy distintas. El panel se dimensiona en "líneas de texto" (así
+  // crece con la fuente ya escalada), se limita a la pantalla y se centra la
+  // primera vez; luego el usuario decide si lo mueve o lo redimensiona.
+  ImGuiIO& io = ImGui::GetIO();
+  const float fh = ImGui::GetFontSize();
+
+  // ~34 caracteres de ancho y ~40 líneas de alto, recortado a la pantalla.
+  float maxW = std::max(240.f, io.DisplaySize.x - 16.f);
+  float maxH = std::max(240.f, io.DisplaySize.y - 16.f);
+  float winW = std::min(fh * 34.f, maxW);
+  float winH = std::min(fh * 40.f, maxH);
+
+  ImGui::SetNextWindowSize(ImVec2(winW, winH), ImGuiCond_Once);
+  ImGui::SetNextWindowSizeConstraints(
+    ImVec2(std::min(fh * 14.f, io.DisplaySize.x), std::min(fh * 14.f, io.DisplaySize.y)),
+    ImVec2(std::max(io.DisplaySize.x, fh * 14.f), std::max(io.DisplaySize.y, fh * 14.f)));
+  ImGui::SetNextWindowPos(
+    ImVec2((io.DisplaySize.x - winW) * 0.5f,
+           (io.DisplaySize.y - winH) * 0.5f),
+    ImGuiCond_Once);
 
   if (!ImGui::Begin("G-Macro Android", &visible)) {
     ImGui::End();
@@ -915,8 +1040,9 @@ void GUI::renderMainPanel() {
 
   ImGui::TextColored(ImVec4(0.85f, 0.78f, 1.0f, 1.f),
             "G-Macro Android %s", GMACRO_VERSION);
-  ImGui::SameLine(ImGui::GetWindowWidth() - 56.f);
-  if (ImGui::Button("X", ImVec2(36.f, 26.f))) {
+  ImGui::SameLine(ImGui::GetWindowWidth() - ImGui::GetFontSize() * 3.2f);
+  if (ImGui::Button("X", ImVec2(ImGui::GetFontSize() * 2.0f,
+                                ImGui::GetFontSize() * 1.5f))) {
     visible = false;
   }
   ImGui::Separator();
@@ -989,12 +1115,57 @@ void GUI::renderMainPanel() {
 //
 // Stability fix
 void GUI::renderer() {
+  updateUiScale();
   renderFloatingBall();
   if (visible) renderMainPanel();
 }
 
+//
+// Escalado de la interfaz según la resolución real.
+//
+// Por qué hace falta: gd-imgui-cocos define io.DisplaySize como
+// frameSize * getDisplayFactor(), y geode::utils::getDisplayFactor() devuelve
+// 1.0 fuera de macOS. En Android, getFrameSize() son píxeles reales del
+// framebuffer (p. ej. 1920x1080 o 2400x1080), no "puntos" lógicos, así que la
+// fuente por defecto de ImGui (13 px) y los tamaños fijos se ven diminutos en
+// un teléfono. Se replica el criterio de OpenHack (mismo backend): 1920 px de
+// ancho = 1x, y se acota para no romper pantallas muy pequeñas o muy grandes.
+//
+// Notas de implementación (ImGui 1.92.4, la versión que fija gd-imgui-cocos):
+//  * ScaleAllSizes() MULTIPLICA los valores actuales (no es idempotente), por
+//    eso se parte siempre del estilo base guardado en setup().
+//  * io.FontGlobalScale se eliminó en 1.92: el factor global de fuente ahora es
+//    style.FontScaleMain (se lee al calcular cada tamaño de fuente), así que
+//    basta con ajustarlo aquí; FontSizeBase se deja constante.
+void GUI::updateUiScale() {
+  ImGuiIO& io = ImGui::GetIO();
+  if (io.DisplaySize.x < 1.f || io.DisplaySize.y < 1.f) return; // aún sin frame
+
+  float s = io.DisplaySize.x / GMACRO_UI_REF_WIDTH;
+  if (s < GMACRO_UI_SCALE_MIN) s = GMACRO_UI_SCALE_MIN;
+  if (s > GMACRO_UI_SCALE_MAX) s = GMACRO_UI_SCALE_MAX;
+  s *= GMacro::get()->uiScaleMul;      // ajuste manual del usuario
+  uiScale = s;
+
+  // Solo se re-aplica cuando cambia de verdad (resolución, pantalla completa…).
+  if (std::fabs(s - appliedUiScale) < 0.005f) return;
+  appliedUiScale = s;
+
+  ImGuiStyle& style = ImGui::GetStyle();
+  style = baseStyle;          // se parte del estilo original (sin escalar)
+  style.ScaleAllSizes(s);     // espaciados, paddings y grosores
+  style.FontScaleMain = s;    // textos (GetFontSize() = 18 * s)
+}
+
 void GUI::setup() {
   applyTheme();
+
+  // Se guarda el estilo sin escalar y se fija el tamaño de fuente base; a
+  // partir de ahí updateUiScale() aplica escala de estilo + fuente.
+  ImGui::GetStyle().FontSizeBase = GMACRO_FONT_BASE;
+  baseStyle = ImGui::GetStyle();
+  appliedUiScale = 0.f;
+  updateUiScale();
 
   GMacro::get()->loadSettings();
 

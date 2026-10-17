@@ -75,6 +75,26 @@ void purgeAfterFrame(std::vector<T>& v, int frame) {
     }), v.end());
 }
 
+// Cursor de playback (regla única de disparo).
+//
+// Devuelve el primer índice >= from cuyo frame AÚN NO debe dispararse, es
+// decir, el primer input con frame > 'frame'. Todos los inputs en
+// [from, resultado) están "vencidos" y hay que ejecutarlos ahora.
+//
+// Usado tanto por el bucle de reproducción como por la re-alineación del
+// cursor tras un reset/respawn, así grabación y reproducción aplican
+// exactamente la misma regla (un input con frame == frame actual se dispara
+// YA; el frame 0 nunca se salta, que es el bug clásico del "primer salto").
+template <class T>
+std::size_t firstNotDue(std::vector<T> const& v, std::size_t from,
+                        std::int64_t frame) {
+  while (from < v.size() &&
+         static_cast<std::int64_t>(v[from].frame) <= frame) {
+    ++from;
+  }
+  return from;
+}
+
 // Devuelve true si los frames son no decrecientes.
 template <class T>
 bool framesMonotonic(std::vector<T> const& v) {

@@ -39,6 +39,12 @@ esos tests), **CÓDIGO** (verificado por revisión de código, sin test aislado)
 | T-11 | `minHoldFrames`/`minGapFrames` | valores > 0 | **NUNCA** modifican `in.frame` | AUTO |
 | T-12 | Deduplicación | eventos idénticos repetidos | Solo se conserva uno | AUTO |
 | T-13 | `purgeAfter(frame)` | frames >= frame | Anteriores se conservan, posteriores se eliminan | AUTO |
+| T-14 | Cursor en lista vacía | `firstNotDue({}, 0, 0)` | Devuelve 0 | AUTO |
+| T-15 | Input en frame 0 | input frame 0, cursor en frame 0 | Está "vencido": el primer click nunca se salta | AUTO |
+| T-16 | Borde exacto del cursor | input frame 5, cursor frame 4/5/6 | 4 = aún no; 5 y 6 = sí | AUTO |
+| T-17 | Progresión de frames | 40 frames sobre 4 inputs | Cada input se dispara exactamente 1 vez; el cursor nunca retrocede | AUTO |
+| T-18 | Alineación tras respawn | respawn en frame 10 | No re-ejecuta nada anterior; dispara lo justo del frame 10 | AUTO |
+| T-19 | Cursor ya avanzado | `firstNotDue(v, 1, 50)` | No revisa elementos anteriores al cursor | AUTO |
 
 ## Pruebas manuales en Android (checklist para el usuario)
 
@@ -58,6 +64,17 @@ esos tests), **CÓDIGO** (verificado por revisión de código, sin test aislado)
 | M-12 | No grabar sin nivel | Activar RECORD en menú principal | No crashea; mensaje claro o simplemente no graba | Pendiente |
 | M-13 | Clickbot sincronizado | Activar clickbot, reproducir macro | El sonido de click coincide con el salto visual | Pendiente |
 | M-14 | Spam en macro | Activar spam, grabar con `spamRecordToMacro` on | Los eventos de spam se guardan en el macro | Pendiente |
+| M-15 | Guardado de seguridad | Activar "Auto guardar" + intervalo 15 s, grabar 30 s y matar el juego desde el sistema | Aparece `<nivel>.autosave` en la lista de macros y se puede reproducir | Pendiente |
+| M-16 | La copia no pisa el macro bueno | Tener un macro perfecto guardado, grabar otro intento y morir antes de completar | El `.gdr` bueno sigue intacto; solo existe/crece el `.autosave` | Pendiente |
+| M-17 | Limpieza de la copia | Completar un nivel con "Auto guardar" on | El `<nivel>.autosave` desaparece al guardarse el run real | Pendiente |
+| M-18 | Muerte durante playback | Reproducir un macro y morir a propósito | No quedan botones "pegados" al reaparecer; el playback se re-alinea | Pendiente |
+| M-19 | UI táctil (Home) | Usar los 3 botones grandes IDLE/GRABAR/REPRODUCIR | Se pulsan con el dedo sin tocar otro control, y marcan el estado activo con color | Pendiente |
+| M-20 | Panel adaptable | Abrir el panel en el móvil (vertical y horizontal) | El panel cabe en la pantalla, queda centrado y hace scroll si no cabe | Pendiente |
+| M-21 | Bolita flotante táctil | Tocar la bolita (sin arrastrar) y luego arrastrarla | Un toque abre/cierra el panel sin moverla; arrastrar la mueve y guarda la posición | Pendiente |
+| M-22 | Tooltips/ayuda en táctil | Mantener pulsado sobre un ajuste | El tooltip de ayuda se ve aun sin ratón (o el texto está visible) | Pendiente |
+| M-23 | Log acotado | Grabar un macro largo con spam y revisar `zbot_debug.log` | El archivo no crece sin control: al pasar 512 KB rota a `zbot_debug_prev.log` | Pendiente |
+| M-24 | Orden de hooks en reproducción | Reproducir y comparar el primer frame exacto de cada input | Los inputs caen en el mismo frame que al grabar (sin desfase de 1 frame) | Pendiente |
+| M-25 | Escala de UI ajustable | Tocar los botones "−"/"+" de "Escala UI" en Settings y luego "Restablecer" | La interfaz cambia de tamaño al momento y el valor se conserva entre sesiones | Pendiente |
 
 ## Criterios de aceptación P0
 

@@ -220,6 +220,36 @@ presentarse como "confirmadas en juego".
 
 ---
 
+## Ronda 2 (17 oct 2026) — sincronización, robustez y UI móvil 100%
+
+**Objetivo:** endurecer la sincronización grabación↔reproducción y hacer el mod
+plenamente usable en Android, apoyándose en el estudio de bots de referencia
+(ToastyReplay, EclipseMenu, zBot, xdBot, OpenHack/Zephyrus).
+
+### Hallazgos y arreglos de esta ronda
+
+| ID | Hallazgo | Evidencia / referencia | Arreglo aplicado | Estado |
+|---|---|---|---|---|
+| B-01 | El playback inyectaba los inputs **antes** del `processCommands` original | EclipseMenu, zBot y ToastyReplay lo hacen **después**; en macOS Toasty incluso cambia de hook por este motivo | `GJBaseGameLayer::processCommands` original pasa a ejecutarse al inicio del hook | CÓDIGO (CI) |
+| B-02 | Regla de disparo duplicada en 3 sitios (playback, clickbot, respawn) con `<=` vs `<` inconsistentes | Revisión de `playbackmanager.cpp` | Extraída a `zmacro::firstNotDue()` con tests; usado en los 3 sitios | AUTO (T-14..T-19) |
+| B-03 | El "primer salto" podía perderse si el input cae en frame 0 y el cursor se alineaba mal | Changelog de xdBot: *"Fixed bug where the player wouldn't do the first jump of the macro"* | `firstNotDue` trata `frame == frameActual` como vencido + test de regresión T-15 | AUTO |
+| B-04 | Al cargar macro con el nivel empezado se re-ejecutaban todos los inputs | Revisión del bloque EPOCH | `justLoaded` entra en la re-alineación (commit `f792745`) | CÓDIGO (CI) |
+| B-05 | Inputs fantasma / botones pegados al morir o al terminar el nivel | Bugs históricos de xdBot ("holding on checkpoint respawn", crash al respawn) | Guardas `m_isDead` / `m_levelEndAnimationStarted` en playback, spam y grabación | CÓDIGO (CI) |
+| B-06 | `framerate` de GDR ajenos no se validaba (0/negativo/absurdo) | `importData()` de GDReplayFormat lo lee tal cual | Saneado en `fromFile` (rango sano, 240 por defecto) | CÓDIGO (CI) |
+| B-07 | Una grabación larga se perdía por completo si Android mataba el proceso | Comportamiento por defecto de Android (OOM/kill) | Copia periódica `<nivel>.autosave.gdr` (nunca pisa el macro real) | CÓDIGO (CI) |
+| B-08 | El log podía crecer sin límite y el `FIRE` por input generaba megas con spam | Revisión de `logger.hpp` / `playbackmanager.cpp` | Rotación a 512 KB + throttle de `FIRE` (24 primeros, luego 1/100) | CÓDIGO (CI) |
+| B-09 | UI de escritorio en un mod Android-first: radio-buttons diminutos, panel de tamaño fijo, bolita con umbral de 6 px, sin escalado por resolución | Uso real en móvil; ImGui de gd-imgui-cocos usa píxeles de framebuffer (getDisplayFactor()=1.0 fuera de macOS) | Escalado automático de estilo+fuente (`updateUiScale`, 1920 px = 1x, como OpenHack) + ajuste manual "Escala UI" en Settings; botones táctiles de ancho completo, panel responsive centrado, bolita/slop escalados, TouchExtraPadding en Android | CÓDIGO (CI) |
+
+### Qué sigue pendiente (honestidad)
+
+* **En juego real:** todo lo anterior está compilado y con tests unitarios, pero **no**
+  verificado ejecutando Geometry Dash. Casos M-15..M-25 de `docs/MACRO_TEST_PLAN.md`.
+* En particular queda por confirmar en dispositivo la hipótesis de fase de
+  `m_currentStep` (B-01) y si `frameOffset` debe ajustarse; el usuario dispone del
+  ajuste en la UI y del log `FIRE frame=… curFrame=…` para reportarlo.
+
+---
+
 ## Limitaciones del entorno actual
 
 - No se dispone de Geometry Dash ni de Android NDK/Geode SDK local para compilar ni ejecutar pruebas en tiempo de ejecución.

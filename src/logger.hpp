@@ -1,6 +1,8 @@
 #pragma once
 #include <Geode/Geode.hpp>
 #include <fstream>
+#include <filesystem>
+#include <cstddef>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -45,12 +47,14 @@ public:
     log::debug("[ZBOT/{}] {}", tag, msg);
     if (m_file.is_open()) {
       m_file << line << "\n";
+      m_bytesWritten += line.size() + 1;
       // Flush cada 10 líneas para reducir I/O en Android
       m_fileLinesSinceFlush++;
       if (m_fileLinesSinceFlush >= 10) {
         m_file.flush();
         m_fileLinesSinceFlush = 0;
       }
+      if (m_bytesWritten >= kMaxLogBytes) rotateFile();
     }
   }
 
@@ -59,6 +63,8 @@ public:
     m_entries.clear();
     m_dirty = true;
     if (m_file.is_open()) m_file.close();
+    m_bytesWritten = 0;
+    m_fileLinesSinceFlush = 0;
     openFile();
   }
 
@@ -86,6 +92,28 @@ public:
 private:
   ZBotLogger() { openFile(); }
 
+  // El log no puede crecer sin límite en Android (almacenamiento interno +
+  // coste de abrirlo al reportar un bug). Al pasar de 512 KB se rota:
+  // zbot_debug.log -> zbot_debug_prev.log y se empieza uno nuevo.
+  static constexpr std::size_t kMaxLogBytes = 512u * 1024u;
+
+  void rotateFile() {
+    if (!m_file.is_open()) return;
+    m_file.flush();
+    m_file.close();
+
+    auto dir = Mod::get()->getSaveDir();
+    std::error_code ec;
+    std::filesystem::remove(dir / "zbot_debug_prev.log", ec);
+    ec.clear();
+    std::filesystem::rename(dir / "zbot_debug.log",
+                            dir / "zbot_debug_prev.log", ec);
+
+    m_bytesWritten = 0;
+    m_fileLinesSinceFlush = 0;
+    openFile();
+  }
+
 // File management for logging
   void openFile() {
     auto dir = Mod::get()->getSaveDir();
@@ -110,6 +138,7 @@ private:
   std::mutex m_mtx;
   std::ofstream m_file;
   int m_fileLinesSinceFlush = 0;
+  std::size_t m_bytesWritten = 0;
   std::vector<ZLogEntry> m_entries;
   bool m_dirty = false;
 };

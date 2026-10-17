@@ -53,6 +53,12 @@ class $modify(zRecGJBGL, GJBaseGameLayer) {
 
     if (mgr->spamSuppressRecord && !mgr->spamRecordToMacro) return;
 
+    // No grabar mientras el jugador esta muerto o termina el nivel: esos
+    // inputs no se pueden reproducir igual (el motor ya no responde) y solo
+    // ensucian el macro. Los botones mantenidos se liberan en resetLevel.
+    if (m_player1 && m_player1->m_isDead) return;
+    if (m_levelEndAnimationStarted) return;
+
 // Determine if this is a Player 2 input in Dual Mode
     bool p2 = !p1 && m_levelSettings && m_levelSettings->m_twoPlayerMode
          && this->m_gameState.m_isDualMode;
@@ -70,6 +76,40 @@ class $modify(zRecGJBGL, GJBaseGameLayer) {
       << (p2 ? "P2" : "P1") 
       << " | frame=" << (frame)
       << " | btn=" << button);
+  }
+
+  // Copia de seguridad periódica mientras se graba.
+  //
+  // Si Android mata el proceso (OOM, cruce de apps, crash) a mitad de una
+  // grabación larga, se pierde todo el run. Cada N segundos se vuelca una copia
+  // a "<nombre>.autosave.gdr", que es un .gdr normal y aparece en la lista de
+  // macros para poder recuperarlo. NO se escribe nunca sobre el macro real ni
+  // se marca autoSavedThisRun, así que el guardado final del run no cambia.
+  void update(float dt) {
+    GJBaseGameLayer::update(dt);
+
+    GMacro* mgr = GMacro::get();
+    auto now = std::chrono::steady_clock::now();
+
+    // Fuera de grabación (o sin nada que guardar) solo se re-arma el reloj.
+    if (mgr->state != RECORD || !mgr->currentReplay
+        || !mgr->autoSave || mgr->autoSaveIntervalSec <= 0
+        || m_levelEndAnimationStarted
+        || mgr->currentReplay->inputs.empty()) {
+      mgr->autoSaveLast = now;
+      return;
+    }
+
+    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+      now - mgr->autoSaveLast).count();
+    if (elapsed < mgr->autoSaveIntervalSec) return;
+    mgr->autoSaveLast = now;
+
+    bool ok = mgr->currentReplay->saveSnapshot(
+      mgr->minHoldFrames, mgr->minGapFrames, mgr->dedupeInputs);
+    ZLOG_INFO("RECORD", "copia de seguridad"
+       << (ok ? "" : " (ERROR de escritura)")
+       << " | inputs=" << mgr->currentReplay->inputs.size());
   }
 };
 
@@ -143,6 +183,8 @@ class $modify(zRecPL, PlayLayer) {
         bool ok = mgr->currentReplay->save(mgr->minHoldFrames, mgr->minGapFrames, mgr->dedupeInputs);
         if (ok) {
           mgr->autoSavedThisRun = true;
+          // Guardado definitivo: la copia de seguridad ya no hace falta.
+          zReplay::removeSnapshot(mgr->currentReplay->name);
           Notification::create("Macro perfecto guardado",
             NotificationIcon::Success, 1.5f)->show();
         } else {
@@ -169,10 +211,12 @@ class $modify(zRecPL, PlayLayer) {
         bool ok = mgr->currentReplay->save(mgr->minHoldFrames, mgr->minGapFrames, mgr->dedupeInputs);
         if (ok) {
           mgr->autoSavedThisRun = true;
+          zReplay::removeSnapshot(mgr->currentReplay->name);
         }
       }
     }
     mgr->autoSavedThisRun = false;
+    mgr->autoSaveLast = std::chrono::steady_clock::now();
     PlayLayer::onExit();
   }
 };

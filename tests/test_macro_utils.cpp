@@ -5,7 +5,7 @@
 //
 //     g++ -std=c++23 -I src tests/test_macro_utils.cpp -o /tmp/test_macro && /tmp/test_macro
 //
-// Cubren los casos T-02..T-13 de docs/MACRO_TEST_PLAN.md.
+// Cubren los casos T-02..T-19 de docs/MACRO_TEST_PLAN.md.
 
 #include "macro_utils.hpp"
 
@@ -180,6 +180,62 @@ static void test_empty() {
   CHECK(zmacro::framesMonotonic(v));
 }
 
+// T-14: lista vacía -> 0 vencidos.
+static void test_due_empty() {
+  std::vector<In> v;
+  CHECK(zmacro::firstNotDue(v, 0, 0) == 0);
+}
+
+// T-15: REGRESIÓN del "primer salto del macro". Un input en frame 0 debe
+// estar vencido en frame 0; no se puede saltar nunca.
+static void test_due_frame_zero() {
+  std::vector<In> v = { mk(0, 1, false, true), mk(0, 1, false, false) };
+  CHECK(zmacro::firstNotDue(v, 0, 0) == 2);
+}
+
+// T-16: un input con frame exactamente igual al frame actual se dispara YA.
+static void test_due_boundary() {
+  std::vector<In> v = { mk(5, 1, false, true) };
+  CHECK(zmacro::firstNotDue(v, 0, 4) == 0); // aun no
+  CHECK(zmacro::firstNotDue(v, 0, 5) == 1); // ahora sí
+  CHECK(zmacro::firstNotDue(v, 0, 6) == 1);
+}
+
+// T-17: progresión de frames -> cada input se dispara exactamente una vez.
+static void test_due_fires_exactly_once() {
+  std::vector<In> v = {
+    mk(0, 1, false, true), mk(3, 1, false, false),
+    mk(3, 2, false, true), mk(17, 2, false, false),
+  };
+  std::size_t fired = 0;
+  for (int frame = 0; frame < 40; ++frame) {
+    std::size_t next = zmacro::firstNotDue(v, fired, frame);
+    CHECK(next >= fired);           // el cursor nunca retrocede
+    fired = next;
+  }
+  CHECK(fired == v.size());
+}
+
+// T-18: la re-alineación tras un respawn usa firstNotDue(v, 0, frame-1):
+// deja justo en el cursor que luego dispara inputs[frame == frame].
+static void test_due_alignment_matches_fire() {
+  std::vector<In> v = { mk(10, 1, false, true), mk(10, 2, false, true),
+                        mk(11, 1, false, false) };
+  int respawnFrame = 10;
+  std::size_t aligned = zmacro::firstNotDue(v, 0,
+      static_cast<std::int64_t>(respawnFrame) - 1);
+  CHECK(aligned == 0);              // nada de antes del respawn se re-ejecuta
+  // ...y en el frame de respawn se dispara lo justo.
+  CHECK(zmacro::firstNotDue(v, aligned, respawnFrame) == 2);
+}
+
+// T-19: con un cursor ya avanzado no se revisan los elementos anteriores.
+static void test_due_from_offset() {
+  std::vector<In> v = { mk(1, 1, false, true), mk(100, 1, false, false) };
+  CHECK(zmacro::firstNotDue(v, 1, 50) == 1);
+  CHECK(zmacro::firstNotDue(v, 1, 100) == 2);
+}
+
 int main() {
   test_press_release_preserved();
   test_long_hold();
@@ -195,6 +251,12 @@ int main() {
   test_purge_after();
   test_purge_zero();
   test_empty();
+  test_due_empty();
+  test_due_frame_zero();
+  test_due_boundary();
+  test_due_fires_exactly_once();
+  test_due_alignment_matches_fire();
+  test_due_from_offset();
 
   std::printf("Checks: %d, Fallos: %d\n", g_checks, g_failures);
   if (g_failures == 0) {

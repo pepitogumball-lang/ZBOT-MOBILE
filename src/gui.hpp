@@ -27,8 +27,16 @@ public:
   ImFont* s = nullptr;
   ImFont* l = nullptr;
 
+  // Escalado de la UI según la resolución real. El backend ImGui de Geode
+  // (gd-imgui-cocos) usa píxeles del framebuffer como unidades, así que sin
+  // esto la interfaz se ve diminuta en un móvil real. Ver GUI::updateUiScale().
+  float uiScale = 1.f;         // escala efectiva calculada (1.0 ≈ pantalla 1080p)
+  float appliedUiScale = 0.f;  // última escala aplicada al estilo
+  ImGuiStyle baseStyle;        // estilo sin escalar (snapshot tras applyTheme)
+
   void setup();
   void renderer();
+  void updateUiScale();
 
   void renderFloatingBall();
 

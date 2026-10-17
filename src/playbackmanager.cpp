@@ -37,6 +37,12 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
     }
     mgr->doAdvance = false;
 
+    // El processCommands original se ejecuta ANTES de replicar los inputs.
+    // Es el mismo orden que usan Eclipse, zBot y ToastyReplay: así la lectura
+    // de m_currentStep ocurre en la misma fase que durante la grabación y no
+    // aparece el clásico desfase de un frame entre grabar y reproducir.
+    GJBaseGameLayer::processCommands(dt, isHalfTick, isLastTick);
+
     int frame = m_currentStep + mgr->frameOffset;
 
     //
@@ -66,27 +72,50 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
           && frame > 1;
         if (isMidLevelJoin || justLoaded) {
           auto& inputs = mgr->currentReplay->inputs;
-          while (m_fields->currIndex < (int)inputs.size() &&
-              inputs[m_fields->currIndex].frame < frame) {
-            m_fields->currIndex++;
-          }
+          // Mismo criterio que tras un respawn: saltar todo lo anterior al
+          // frame actual pero conservar el input que cae justo en este frame.
+          m_fields->currIndex = static_cast<int>(
+            zmacro::firstNotDue(inputs, 0,
+                static_cast<std::int64_t>(frame) - 1));
           m_fields->clickBotIndex = m_fields->currIndex;
         }
       }
 
       auto& inputs = mgr->currentReplay->inputs;
 
-      while (m_fields->currIndex < (int)inputs.size() &&
-          inputs[m_fields->currIndex].frame <= frame) {
-        auto& input = inputs[m_fields->currIndex++];
-        
-        ZLOG_INFO("PLAYBACK", "FIRE"
-           " frame=" << input.frame
-           << " btn=" << input.button
-           << " down=" << input.down
-           << " p2=" << input.player2
-           << " | curFrame=" << frame
-           << " | idx=" << (m_fields->currIndex-1));
+      // Guardas de seguridad: no se replican inputs mientras el jugador esta
+      // muerto o mientras corre la animacion de fin de nivel. Repartir inputs
+      // en esas escenas deja el bot "colgado" (inputs fantasma tras el respawn
+      // o clicks del clickbot durante la animacion de muerte). El cursor se
+      // re-alinea en resetLevel cuando vuelve a jugarse.
+      bool canFire = inLevel
+        && !(m_player1 && m_player1->m_isDead)
+        && !pl->m_levelEndAnimationStarted;
+
+      // Regla única de disparo (zmacro::firstNotDue, con tests unitarios).
+      std::size_t due = canFire
+        ? zmacro::firstNotDue(inputs,
+              static_cast<std::size_t>(m_fields->currIndex),
+              static_cast<std::int64_t>(frame))
+        : static_cast<std::size_t>(m_fields->currIndex);
+
+      for (; static_cast<std::size_t>(m_fields->currIndex) < due;
+           m_fields->currIndex++) {
+        auto& input = inputs[m_fields->currIndex];
+
+        // En Android el log va a un archivo: registrar cada input de un macro
+        // con spam genera megas de texto y contención de I/O. Se guardan los
+        // primeros 24 de cada epoch (lo justo para diagnosticar el clásico
+        // "primer salto perdido") y después 1 de cada 100.
+        if (m_fields->currIndex < 24 || (m_fields->currIndex % 100) == 0) {
+          ZLOG_INFO("PLAYBACK", "FIRE"
+             " frame=" << input.frame
+             << " btn=" << input.button
+             << " down=" << input.down
+             << " p2=" << input.player2
+             << " | curFrame=" << frame
+             << " | idx=" << (m_fields->currIndex));
+        }
         #ifdef GEODE_IS_MOBILE
         m_allowedButtons.clear();
         #endif
@@ -124,11 +153,16 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
 
       // Clickbot: reproducir sonido en el mismo frame del input (sin offset)
       // para que el audio coincida con la acción visual.
-      while (m_fields->clickBotIndex < (int)inputs.size() &&
-          inputs[m_fields->clickBotIndex].frame <= frame) {
-        auto click = inputs[m_fields->clickBotIndex++];
-        if (mgr->clickbotEnabled) {
-          mgr->playSound(click.player2, click.button, click.down);
+      if (canFire) {
+        std::size_t clickDue = zmacro::firstNotDue(inputs,
+            static_cast<std::size_t>(m_fields->clickBotIndex),
+            static_cast<std::int64_t>(frame));
+        for (; static_cast<std::size_t>(m_fields->clickBotIndex) < clickDue;
+             m_fields->clickBotIndex++) {
+          auto& click = inputs[m_fields->clickBotIndex];
+          if (mgr->clickbotEnabled) {
+            mgr->playSound(click.player2, click.button, click.down);
+          }
         }
       }
     } else {
@@ -136,9 +170,7 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
       m_fields->lastReplay = mgr->currentReplay;
     }
 
-    // Siempre ejecutar el processCommands original para evitar congelar el juego.
-    // ignoreInput se eliminó: nunca debe bloquear la lógica del motor.
-    GJBaseGameLayer::processCommands(dt, isHalfTick, isLastTick);
+    // (el processCommands original ya se ejecutó al inicio de este hook)
 
     //
     bool spamGateOk = true;
@@ -146,7 +178,9 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
       spamGateOk = !pl->m_isPaused;
     }
 
-    if (mgr->spamEnabled && inLevel && spamGateOk) {
+    if (mgr->spamEnabled && inLevel && spamGateOk
+        && !(m_player1 && m_player1->m_isDead)
+        && !pl->m_levelEndAnimationStarted) {
       if (!m_fields->spamWasOn || frame < m_fields->spamAnchor) {
         m_fields->spamAnchor = frame;
         m_fields->spamHeld[0] = false;
@@ -224,10 +258,11 @@ class $modify(zPlayPL, PlayLayer) {
 
       int frame = self->m_currentStep + mgr->frameOffset;
       auto& inputs = mgr->currentReplay->inputs;
-      while (f->currIndex < (int)inputs.size() &&
-             inputs[f->currIndex].frame < frame) {
-        f->currIndex++;
-      }
+      // Misma regla que la grabación y el disparo: saltarse lo anterior al
+      // frame actual, dejando el cursor justo donde empieza a reproducir.
+      f->currIndex = static_cast<int>(
+        zmacro::firstNotDue(inputs, 0,
+            static_cast<std::int64_t>(frame) - 1));
       f->clickBotIndex = f->currIndex;
     }
   }

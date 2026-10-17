@@ -5,6 +5,7 @@
 
 #include <Geode/Geode.hpp>
 #include "replay.hpp"
+#include <chrono>
 
 using namespace geode::prelude;
 
@@ -23,6 +24,26 @@ constexpr int GMACRO_HOLD_MIN = 0;
 constexpr int GMACRO_HOLD_MAX = 60;
 constexpr int GMACRO_GAP_MIN  = 0;
 constexpr int GMACRO_GAP_MAX  = 60;
+// Guardado periódico durante la grabación (segundos). 0 = desactivado.
+// Sirve de protección ante un crash/kill del proceso en Android.
+constexpr int GMACRO_AUTOSAVE_MIN = 0;
+constexpr int GMACRO_AUTOSAVE_MAX = 3600;
+
+// Escalado de la interfaz (Android). El backend ImGui de Geode
+// (gd-imgui-cocos) fija io.DisplaySize = frameSize * getDisplayFactor(), y en
+// Android getDisplayFactor() vale 1.0, es decir: las unidades de ImGui son
+// píxeles reales del framebuffer (~1920+ de ancho en un móvil 1080p). Sin
+// escalar, la fuente por defecto de 13 px es ilegible en un teléfono.
+// Se toma 1920 px de ancho como referencia "1x" (mismo criterio que OpenHack,
+// que usa este mismo backend) y se acota para pantallas pequeñas/grandes.
+constexpr float GMACRO_UI_REF_WIDTH = 1920.f;
+constexpr float GMACRO_UI_SCALE_MIN = 0.72f;  // ventanas de escritorio pequeñas
+constexpr float GMACRO_UI_SCALE_MAX = 2.60f;  // tablets de alta densidad
+constexpr float GMACRO_FONT_BASE    = 18.f;   // tamaño base antes del escalado
+// Ajuste manual del usuario (multiplica la escala automática): permite
+// agrandar/encoger la interfaz en el propio dispositivo sin recompilar.
+constexpr float GMACRO_UI_MUL_MIN   = 0.50f;
+constexpr float GMACRO_UI_MUL_MAX   = 2.00f;
 
 // Internal state management
 class GMacro {
@@ -76,6 +97,17 @@ public:
 
   bool autoSavedThisRun = false;
 
+  // Guardado periódico mientras se graba: copia de seguridad cada N segundos
+  // (0 = apagado). Evita perder una grabación larga si Android mata el juego.
+  // La marca es de reloj monótono: así el intervalo es en segundos REALES y no
+  // se ve afectado por el speedhack (que escala el dt de los frames).
+  int autoSaveIntervalSec = 60;
+  std::chrono::steady_clock::time_point autoSaveLast =
+    std::chrono::steady_clock::now();
+
+  // Multiplicador manual del escalado de UI (1.0 = solo automático).
+  float uiScaleMul = 1.0f;
+
   bool p1ButtonHeld[8] = { false };
   bool p2ButtonHeld[8] = { false };
 
@@ -101,6 +133,7 @@ public:
     currentReplay->framerate = 240.0;
 
     levelCompleted = false;
+    autoSaveLast = std::chrono::steady_clock::now();
     for (int i = 0; i < 8; ++i) {
       p1ButtonHeld[i] = false;
       p2ButtonHeld[i] = false;
@@ -144,6 +177,8 @@ public:
     m->setSavedValue<bool> ("clickbotEnabled",  clickbotEnabled);
 
     m->setSavedValue<bool> ("autoSave",      autoSave);
+    m->setSavedValue<int64_t>("autoSaveIntervalSec", autoSaveIntervalSec);
+    m->setSavedValue<double>("uiScaleMul",    static_cast<double>(uiScaleMul));
 // Operational logic flags
     m->setSavedValue<bool> ("perfectRunOnly",   perfectRunOnly);
     m->setSavedValue<bool> ("dedupeInputs",    dedupeInputs);
@@ -177,6 +212,14 @@ public:
 
 // Settings persistence logic
     autoSave      = m->getSavedValue<bool> ("autoSave",      autoSave);
+    autoSaveIntervalSec = static_cast<int>(m->getSavedValue<int64_t>(
+      "autoSaveIntervalSec", autoSaveIntervalSec));
+    if (autoSaveIntervalSec < GMACRO_AUTOSAVE_MIN) autoSaveIntervalSec = GMACRO_AUTOSAVE_MIN;
+    if (autoSaveIntervalSec > GMACRO_AUTOSAVE_MAX) autoSaveIntervalSec = GMACRO_AUTOSAVE_MAX;
+    uiScaleMul = static_cast<float>(m->getSavedValue<double>("uiScaleMul",
+      static_cast<double>(uiScaleMul)));
+    if (uiScaleMul < GMACRO_UI_MUL_MIN) uiScaleMul = GMACRO_UI_MUL_MIN;
+    if (uiScaleMul > GMACRO_UI_MUL_MAX) uiScaleMul = GMACRO_UI_MUL_MAX;
 // Operational logic flags
     perfectRunOnly   = m->getSavedValue<bool> ("perfectRunOnly",   perfectRunOnly);
     dedupeInputs    = m->getSavedValue<bool> ("dedupeInputs",    dedupeInputs);
