@@ -70,11 +70,13 @@ struct zReplay : gdr::Replay<zReplay, zInput> {
       cleaned.push_back(in);
     }
 
-  // minHoldFrames y minGapFrames se aplican en el momento de la grabación
-  // (recordmanager.cpp), nunca se modifican los frames al serializar.
-  // cleanInputs solo filtra duplicados y ordena por frame.
-  // (La sección anterior que desplazaba frames se eliminó: rompe la
-  //  sincronización frame-perfecta entre grabación y reproducción.)
+    // Nota: minHoldFrames/minGapFrames ya no desplazan frames aquí. El
+    // desplazamiento se eliminó porque rompía la sincronización
+    // frame-perfecta entre grabación y reproducción. cleanInputs solo
+    // filtra duplicados y ordena por frame.
+    inputs = std::move(cleaned);
+  }
+
   bool save(int minHoldFrames = 0, int minGapFrames = 0) {
     author = GJAccountManager::get()->m_username;
     cleanInputs(minHoldFrames, minGapFrames);
