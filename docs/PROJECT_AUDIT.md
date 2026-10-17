@@ -1,6 +1,6 @@
 # Auditoría del Proyecto — G-Macro Android / ZBOT-MOBILE
 
-**Fecha:** 16 de octubre de 2026  
+**Fecha:** 17 de octubre de 2026  
 **Rama inspeccionada:** `main` (commit `d402bf3`)  
 **Rama de trabajo:** `opencode/zbot-mobile-improvements-2026-10-16`  
 **Repositorio:** `pepitogumball-lang/ZBOT-MOBILE`  
@@ -10,11 +10,52 @@
 
 ## Resumen ejecutivo
 
-El proyecto compila conceptualmente, pero la **macro end-to-end no funciona de forma fiable** (P0 pendiente). El diagnóstico `MACRO_DIAGNOSTIC.md` señala `m_currentProgress / 2` como causa raíz, pero el código actual ya sustituyó eso por `m_gameState.m_totalFrames`, por lo que el diagnóstico está **obsoleto**. Los problemas reales están en la deduplicación de inputs, la modificación silenciosa de frames en `cleanInputs`, el manejo del cursor de playback, la ruta hardcodeada de macros en Android y la falta de tests.
+**El proyecto NO compilaba en `main`.** El commit `d402bf3` ("Fix macro stability by
+using totalFrames") introdujo el miembro `m_gameState.m_totalFrames`, que **no existe**
+en los bindings de GD 2.2081 (el campo real es `m_currentStep` en `GJBaseGameLayer`, y
+`m_totalTime`/`m_currentProgress` en `GJGameState`). Como consecuencia, cada unidad de
+traducción fallaba al compilar y el CI llevaba **rojo desde ese commit**. Esto se verificó
+con el log real de GitHub Actions (ver A-00), no por suposición.
 
-Cada hallazgo incluye su estado actual y el arreglo elegido. Ningún cambio se declara "arreglado" sin evidencia de revisión de código.
+Una vez corregido el build, se abordaron los problemas de la macro end-to-end. El
+diagnóstico `MACRO_DIAGNOSTIC.md` original señalaba `m_currentProgress / 2` como causa
+raíz, pero esa hipótesis nunca se confirmó y el código ya la había sustituido. Los
+problemas reales (tras restaurar el build) están en: el miembro inexistente para
+calcular frames, la modificación silenciosa de frames en `cleanInputs`, el estado de
+deduplicación `static` que se filtra entre sesiones, el offset de clickbot, la ruta
+hardcodeada de macros en Android y la falta de tests.
+
+Cada hallazgo incluye su estado actual y el arreglo elegido. Ningún cambio se declara
+"arreglado" sin evidencia de compilación o revisión de código; el comportamiento en
+juego queda **pendiente de validación manual** (ver `docs/MACRO_TEST_PLAN.md`).
 
 ---
+
+## Evidencia de compilación (CI)
+
+| Ejecución | Commit | Rama | Resultado |
+|---|---|---|---|
+| `29138154381` | `d402bf3` | `main` | ❌ failure (log expirado, 410) |
+| `29006856617` | `7aec330` | work branch | ❌ failure — llave faltante en `cleanInputs` + `m_totalFrames` |
+| `39007179561` | `094cc07` | work branch | ❌ failure — `m_totalFrames` (causa raíz) |
+| `39007462340` | `2e417e6` | work branch | ✅ **success** (Android32 + Android64 + package) |
+
+La causa raíz del build roto se leyó directamente del log del run `39007179561`:
+
+```
+src/playbackmanager.cpp:40:46: error: no member named 'm_totalFrames' in 'GJGameState';
+did you mean 'm_totalTime'?
+src/recordmanager.cpp:54:52: error: no member named 'm_totalFrames' in 'GJGameState'
+src/gui.cpp:301:55: error: no member named 'm_totalFrames' in 'GJGameState'
+```
+
+Verificación de los bindings reales (2.2081): `GJBaseGameLayer` tiene `int m_currentStep;`
+y `GJGameState` tiene `double m_totalTime;`, `unsigned int m_currentProgress;`, pero
+**ningún** `m_totalFrames`. GD usa `int m_step` en su propio `PlayerButtonCommand`, y
+otros mods de replay (`GatoBot`, `GD-Replay-Mod`) usan `layer->m_currentStep`.
+
+---
+
 
 ## Mapa de componentes y flujo de datos
 
@@ -60,7 +101,8 @@ Cada hallazgo incluye su estado actual y el arreglo elegido. Ningún cambio se d
 
 | ID | Severidad | Archivo | Línea | Evidencia | Impacto | Arreglo elegido |
 |---|---|---|---|---|---|---|
-| A-01 | P0 | `src/replay.hpp` | `cleanInputs()` | Modifica `in.frame` de los inputs grabados según `minHoldFrames`/`minGapFrames`. Rompe la sincronización frame-perfecta: un input grabado en frame 5 puede moverse al frame 7. | La reproducción no coincide con la grabación original; desincronización garantizada. | Eliminar modificación de frames en `cleanInputs`. Solo filtrar duplicados y validar. |
+| A-00 | **P0 (bloqueante)** | `src/recordmanager.cpp`, `src/playbackmanager.cpp`, `src/gui.cpp` | cálculo de `frame` | `m_gameState.m_totalFrames` **no existe** en los bindings de GD 2.2081. El compilador lo confirmó: *"no member named 'm_totalFrames' in 'GJGameState'; did you mean 'm_totalTime'?"*. Todo el mod dejó de compilar desde `d402bf3`. | Build roto: el mod no carga en absoluto. | Usar `GJBaseGameLayer::m_currentStep` (el contador canónico, igual que GD internamente y otros mods). |
+| A-01 | P0 | `src/replay.hpp` | `cleanInputs()` | Modifica `in.frame` de los inputs grabados según `minHoldFrames`/`minGapFrames`. Rompe la sincronización frame-perfecta: un input grabado en frame 5 puede moverse al frame 7. | La reproducción no coincide con la grabación original; desincronización garantizada. | Eliminar modificación de frames en `cleanInputs`. Solo filtrar duplicados y ordenar. |
 | A-02 | P0 | `src/recordmanager.cpp` | `shouldRecord()` | Variables `static` `s_lastFrame`, `s_lastDown`, `s_lastButton`, `s_lastP2` son globales a nivel de traducción. Si se graba, se detiene, y se vuelve a grabar sin reiniciar el estado (salvo en `PlayLayer::init` cuando `state == RECORD`), puede perderse el primer input de una nueva sesión. | Primer click de una nueva grabación puede descartarse. | Convertir el estado de deduplicación en miembros de `GMacro` o resetearlo explícitamente al iniciar cada grabación/nivel. |
 | A-03 | P0 | `src/playbackmanager.cpp` | `processCommands()` | El bucle de playback dispara inputs con `frame <= frame_actual`. Si `m_totalFrames` no avanza (frame advance activo sin `doAdvance`, juego pausado), `cursor=0/116` para siempre (bucle infinito reportado en `MACRO_DIAGNOSTIC.md`). | Replay nunca empieza o se queda atascado. | Añadir guardia contra cursor atascado y separar lógica de frame advance del bucle de playback. |
 | A-04 | P0 | `src/playbackmanager.cpp` | `processCommands()` | `ignoreInput` cuando es `true` impide llamar a `GJBaseGameLayer::processCommands` original, congelando la lógica del juego. | Si `ignoreInput` se activa por error, el juego se congela durante playback. | Eliminar `ignoreInput`. Asegurar que `processCommands` original siempre se llame. |
@@ -81,13 +123,51 @@ Cada hallazgo incluye su estado actual y el arreglo elegido. Ningún cambio se d
 
 ## Causa raíz del bug de macro
 
-**Causa principal confirmada por revisión de código:**
+**Causa principal confirmada por compilación (A-00):**
 
-La función `cleanInputs()` en `src/replay.hpp` modifica los valores `frame` de los inputs grabados según `minHoldFrames` y `minGapFrames`. Esto significa que los frames almacenados en el archivo `.gdr` **no coinciden** con los frames reales en los que se capturaron los inputs durante la grabación. Cuando el playback lee el archivo y compara `inputs[currIndex].frame <= m_total_frames`, los frames desplazados hacen que el cursor no avance correctamente o se dispare en el momento equivocado.
+El cálculo de `frame` usaba `m_gameState.m_totalFrames`, un miembro que **no existe** en
+los bindings de GD 2.2081. El mod no compilaba, por lo que nada de lo demás importaba:
+mientras no compila, no hay macro que funcione. Se corrigió usando
+`GJBaseGameLayer::m_currentStep`, el contador de pasos de física (240 Hz), que es
+exactamente el mismo valor que GD usa internamente (`PlayerButtonCommand::m_step`) y que
+otros mods de replay emplean.
 
-**Causa secundaria:**
+**Causa secundaria confirmada por revisión de código (A-01/A-02):**
 
-Las variables `static` en `shouldRecord()` (src/recordmanager.cpp) persisten entre sesiones de grabación y solo se resetean parcialmente, lo que puede hacer que el primer input de una nueva grabación se descarte.
+La función `cleanInputs()` en `src/replay.hpp` modificaba los valores `frame` de los inputs
+grabados según `minHoldFrames` y `minGapFrames`, de modo que los frames guardados en el
+`.gdr` no coincidían con los frames reales de captura. Además, el estado de deduplicación
+de `shouldRecord()` eran variables `static` de archivo que persistían entre sesiones,
+pudiendo descartar el primer input de una nueva grabación.
+
+**Nota de honestidad:** estas dos causas secundarias son hallazgos de revisión de código; su
+impacto exacto en juego está **pendiente de validación manual** en Android. No deben
+presentarse como "confirmadas en juego".
+
+---
+
+## Estado de implementación
+
+| Punto | Estado | Evidencia |
+|---|---|---|
+| A-00 `m_currentStep` | ✅ Hecho | Compila en CI (run `39007462340` success) |
+| A-01 `cleanInputs` sin desplazar frames | ✅ Hecho | Revisión de código + CI |
+| A-02 dedupe sin `static` | ✅ Hecho | Revisión de código + CI |
+| A-04 eliminar `ignoreInput` | ✅ Hecho | Revisión de código + CI |
+| A-05 `macrosDir()` con `getSaveDir()` | ✅ Hecho | Revisión de código + CI |
+| A-06 clickbot sin offset | ✅ Hecho | Revisión de código + CI |
+| A-07/A-08 clamp de speed/pitch | ✅ Hecho | Revisión de código + CI |
+| A-09 `mod.json` Geode 5.11.2 | ✅ Hecho | CI con SDK nightly compila |
+| A-10 null check en `renderStateSwitcher` | ✅ Hecho | Revisión de código + CI |
+| A-11 logger bufferizado | ✅ Hecho | Revisión de código + CI |
+| A-12 safe area bolita | ✅ Hecho | Revisión de código + CI |
+| A-13 separar speed enabled/valor | ⏳ Pendiente | — |
+| A-14 manejo offline updatecheck | ⏳ Pendiente | — |
+| A-15 código muerto `utils.hpp` | ⏳ Pendiente | — |
+| A-16 `MACRO_DIAGNOSTIC.md` reescrito | ✅ Hecho | Archivo |
+| A-03 semántica de cursor | ⚠️ Requiere test en juego | Documentado en test plan |
+
+**Regla:** ✅ significa "compila y fue revisado", nunca "probado en juego".
 
 ---
 
