@@ -27,14 +27,33 @@ de macro, era que el `.geode` no se podía construir ni cargar. Cualquier análi
 la macro sobre esa base era irrelevante.
 
 **Miembro real:** `GJGameState` tiene `double m_totalTime`, `unsigned int m_currentProgress`
-y `unsigned int m_commandIndex`, pero **no** `m_totalFrames`. El contador de pasos de
-física correcto es `int GJBaseGameLayer::m_currentStep`. Es el mismo valor que usa
-Geometry Dash internamente (`PlayerButtonCommand::m_step`) y el que usan otros mods de
-replay (`GatoBot`, `GD-Replay-Mod`).
+y `unsigned int m_commandIndex`, pero **no** `m_totalFrames`.
 
-**Corrección aplicada:** todas las referencias a `m_gameState.m_totalFrames` (~4) se
-sustituyeron por `m_currentStep`. Verificado por compilación real en CI
-(Android32 + Android64).
+**Corrección intermedia (ya superada):** todas las referencias a `m_gameState.m_totalFrames`
+(~4) se sustituyeron por `GJBaseGameLayer::m_currentStep`. Eso arregló la compilación
+(verificado en CI, Android32 + Android64), pero **no** arregló el macro.
+
+### Corrección definitiva: el contador es `m_gameState.m_currentProgress`
+
+La primera prueba en un dispositivo real (Galaxy Tab A8, GD 2.2081, 60 Hz) demostró que
+`m_currentStep` **no sirve**:
+
+```
+[PLAYBACK] tick frame=0 cursor=0/4 remaining=4     (repetido cientos de veces)
+[PLAYBACK] el frame del juego no avanza | frame=0 | currIndex=0
+```
+
+El hook llama al `processCommands` original a ~60 Hz, pero `m_currentStep` se quedaba
+**clavado en 0**. El cursor (`firstNotDue`) nunca encontraba inputs vencidos, así que el
+macro no disparaba absolutamente nada. Encaja con su posición en los bindings: `m_currentStep`
+vive en `GJBaseGameLayer` junto a la maquinaria de replay/TAS integrada del propio GD
+(`m_queuedButtons`, `m_queuedReplayButtons`, `RecordCheckpoint`, `m_replayRandSeed`),
+no es el contador de juego normal.
+
+**Se cambió a `GJGameState::m_currentProgress`**, que es el contador que usan **todos** los
+bots de referencia estudiados (Eclipse `Bot.cpp`, zBot, xdBot, Silicate) y que además es el
+estado que `CheckpointObject` guarda y restaura. Aplicado en grabación, reproducción,
+realineado tras respawn y en la GUI.
 
 ---
 

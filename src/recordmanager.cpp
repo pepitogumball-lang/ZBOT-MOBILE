@@ -63,8 +63,11 @@ class $modify(zRecGJBGL, GJBaseGameLayer) {
     bool p2 = !p1 && m_levelSettings && m_levelSettings->m_twoPlayerMode
          && this->m_gameState.m_isDualMode;
     
-    int frame = m_currentStep;
-    
+    // CONTADOR DE FRAMES: m_currentProgress, no m_currentStep (ver el
+    // comentario largo en playbackmanager.cpp). Debe ser EXACTAMENTE el mismo
+    // contador que usa la reproduccion, o el macro no coincide nunca.
+    int frame = static_cast<int>(m_gameState.m_currentProgress);
+
     if (!shouldRecord(mgr, down, button, p2, frame)) return;
 
     mgr->currentReplay->addInput(
@@ -146,7 +149,9 @@ class $modify(zRecPL, PlayLayer) {
     GMacro* mgr = GMacro::get();
     if (mgr->state != RECORD || !mgr->currentReplay) return;
 
-    int frame = m_currentStep;
+    // Mismo contador que handleButton: purgar por m_currentProgress para que
+    // coincida con el frame al que se graban los inputs nuevos.
+    int frame = static_cast<int>(m_gameState.m_currentProgress);
     mgr->currentReplay->purgeAfter(frame);
 
     mgr->resetButtonStateAfterFrame(frame);

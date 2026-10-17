@@ -22,6 +22,7 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
     int lastSeenFrame = -1;        // diagnóstico de frame congelado
     int sameFrameCount = 0;
     bool warnedStuck = false;
+    int tickCall = 0;              // limitador del log de estado
   };
 
 // Core playback and spam logic loop
@@ -39,11 +40,24 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
 
     // El processCommands original se ejecuta ANTES de replicar los inputs.
     // Es el mismo orden que usan Eclipse, zBot y ToastyReplay: así la lectura
-    // de m_currentStep ocurre en la misma fase que durante la grabación y no
+    // del contador ocurre en la misma fase que durante la grabación y no
     // aparece el clásico desfase de un frame entre grabar y reproducir.
     GJBaseGameLayer::processCommands(dt, isHalfTick, isLastTick);
 
-    int frame = m_currentStep + mgr->frameOffset;
+    // CONTADOR DE FRAMES: GJGameState::m_currentProgress, no m_currentStep.
+    //
+    // Medido en el dispositivo real (Galaxy Tab A8, GD 2.2081): mientras
+    // processCommands original se ejecutaba a ~60 Hz, m_currentStep se quedaba
+    // clavado en 0, así que el cursor nunca avanzaba y el macro no disparaba
+    // nada. Es coherente con su posición en los bindings: m_currentStep vive
+    // junto al hardcode de TAS/replay interno de GD (m_queuedButtons,
+    // m_replayRandSeed, RecordCheckpoint), no es el contador de juego normal.
+    //
+    // m_currentProgress es el contador que usan Eclipse (Bot.cpp), zBot,
+    // xdBot y Silicate, y es el estado que CheckpointObject guarda/restaura,
+    // así que grabar y reproducir ven el mismo valor tras un checkpoint.
+    int frame = static_cast<int>(m_gameState.m_currentProgress)
+              + mgr->frameOffset;
 
     //
     if (mgr->state == PLAYBACK && mgr->currentReplay) {
@@ -98,6 +112,12 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
         && !(m_player1 && m_player1->m_isDead)
         && !pl->m_levelEndAnimationStarted;
 
+      // Valores seguros para el diagnostico: `pl` puede ser nulo cuando el
+      // hook corre fuera de un nivel, y hay que poder imprimirlos igual.
+      const bool dbgDead    = (m_player1 && m_player1->m_isDead);
+      const bool dbgEndAnim = inLevel && pl->m_levelEndAnimationStarted;
+      const bool dbgPaused  = inLevel && pl->m_isPaused;
+
       // Regla única de disparo (zmacro::firstNotDue, con tests unitarios).
       std::size_t due = canFire
         ? zmacro::firstNotDue(inputs,
@@ -136,15 +156,21 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
       }
 
       // Diagnóstico (no correctivo): si el frame del juego no avanza durante
-      // muchos ciclos en PLAYBACK, es señal de pausa o de frame advance sin
-      // avance. NO se toca el cursor: hacerlo re-ejecutaría inputs ya pasados.
-      if (frame == m_fields->lastSeenFrame) {
+      // muchos ciclos en PLAYBACK, es señal de pausa o de un contador roto.
+      // NO se toca el cursor: hacerlo re-ejecutaría inputs ya pasados.
+      bool frameFrozen = (frame == m_fields->lastSeenFrame);
+      if (frameFrozen) {
         m_fields->sameFrameCount++;
-        if (m_fields->sameFrameCount > 120 && !m_fields->warnedStuck) {
+        if (m_fields->sameFrameCount > 240 && !m_fields->warnedStuck) {
           ZLOG_WARN("PLAYBACK", "el frame del juego no avanza"
-             " (pausa o frame advance sin avance)"
              << " | frame=" << frame
-             << " | currIndex=" << m_fields->currIndex);
+             << " | currIndex=" << m_fields->currIndex
+             << " | step=" << m_currentStep
+             << " prog=" << m_gameState.m_currentProgress
+             << " | canFire=" << (canFire ? 1 : 0)
+             << " dead=" << (dbgDead ? 1 : 0)
+             << " endAnim=" << (dbgEndAnim ? 1 : 0)
+             << " paused=" << (dbgPaused ? 1 : 0));
           m_fields->warnedStuck = true;
         }
       } else {
@@ -153,7 +179,10 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
         m_fields->warnedStuck = false;
       }
 
-      if (frame % 60 == 0) {
+      // Log de estado rate-limitado POR LLAMADAS, no por `frame % 60`.
+      // Con el contador clavado en 0, `0 % 60 == 0` era siempre cierto y el
+      // log se inundaba con cientos de líneas idénticas por segundo.
+      if ((m_fields->tickCall++ % 240) == 0) {
         int remaining = (int)inputs.size() - m_fields->currIndex;
         auto lvl = (remaining == 0 && !inputs.empty())
               ? ZLogLevel::Warn : ZLogLevel::Debug;
@@ -161,7 +190,14 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
           std::string("tick frame=") + std::to_string(frame)
           + " cursor=" + std::to_string(m_fields->currIndex)
           + "/" + std::to_string((int)inputs.size())
-          + " remaining=" + std::to_string(remaining));
+          + " remaining=" + std::to_string(remaining)
+          + " | step=" + std::to_string(m_currentStep)
+          + " prog=" + std::to_string(m_gameState.m_currentProgress)
+          + " | canFire=" + std::to_string(canFire ? 1 : 0)
+          + " dead=" + std::to_string(dbgDead ? 1 : 0)
+          + " endAnim=" + std::to_string(dbgEndAnim ? 1 : 0)
+          + " paused=" + std::to_string(dbgPaused ? 1 : 0)
+          + " frameAdv=" + std::to_string(mgr->frameAdvance ? 1 : 0));
       }
 
       // Clickbot: reproducir sonido en el mismo frame del input (sin offset)
@@ -268,8 +304,14 @@ class $modify(zPlayPL, PlayLayer) {
       f->lastSeenFrame = -1;
       f->sameFrameCount = 0;
       f->warnedStuck = false;
+      f->tickCall = 0;
 
-      int frame = self->m_currentStep + mgr->frameOffset;
+      // Mismo contador que en processCommands: GJGameState::m_currentProgress
+      // (ver comentario en zPlayGJBGL::processCommands). Usar aquí el mismo
+      // valor que al reproducir es lo que garantiza que el cursor quede bien
+      // realineado tras un respawn o al aparecer desde un checkpoint.
+      int frame = static_cast<int>(self->m_gameState.m_currentProgress)
+                + mgr->frameOffset;
       auto& inputs = mgr->currentReplay->inputs;
       // Misma regla que la grabación y el disparo: saltarse lo anterior al
       // frame actual, dejando el cursor justo donde empieza a reproducir.

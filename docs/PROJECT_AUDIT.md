@@ -245,7 +245,7 @@ plenamente usable en Android, apoyándose en el estudio de bots de referencia
 * **En juego real:** todo lo anterior está compilado y con tests unitarios, pero **no**
   verificado ejecutando Geometry Dash. Casos M-15..M-25 de `docs/MACRO_TEST_PLAN.md`.
 * En particular queda por confirmar en dispositivo la hipótesis de fase de
-  `m_currentStep` (B-01) y si `frameOffset` debe ajustarse; el usuario dispone del
+  `m_currentProgress` (B-01) y si `frameOffset` debe ajustarse; el usuario dispone del
   ajuste en la UI y del log `FIRE frame=… curFrame=…` para reportarlo.
 
 ---

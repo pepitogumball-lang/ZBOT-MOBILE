@@ -7,9 +7,20 @@
 > (ver `docs/MACRO_TEST_PLAN.md`, casos M-15..M-25).
 
 **Sincronización grabación/reproducción**
+
+* **FIX BLOQUEANTE (P0) — el macro no disparaba nada en dispositivo:** el contador de
+  frames del mod era `GJBaseGameLayer::m_currentStep`, que en el **dispositivo real**
+  (Galaxy Tab A8, GD 2.2081) se queda **clavado en 0** mientras el juego corre. El log
+  mostraba `tick frame=0 cursor=0/4 remaining=4` sin cesar: el cursor nunca avanzaba y
+  no se inyectaba ni un solo input. Se cambió **todo** el mod a
+  `GJGameState::m_currentProgress`, que es el contador que usan los bots de referencia
+  (Eclipse, zBot, xdBot, Silicate) y el estado que `CheckpointObject` restaura.
+  Aplicado en grabación, reproducción, `purgeAfter`, realineado tras respawn y GUI.
+  Diagnóstico extraído de un log real en dispositivo; la corrección en sí sigue
+  **PENDIENTE de prueba en juego real** hasta el siguiente build.
 * **FIX (P0):** El `processCommands` original del motor ahora se ejecuta **antes** de
   inyectar los inputs del macro. Es el mismo orden que usan EclipseMenu, zBot y
-  ToastyReplay: al leer `m_currentStep` en la misma fase que durante la grabación
+  ToastyReplay: al leer el contador en la misma fase que durante la grabación
   desaparece el clásico desfase de 1 frame entre grabar y reproducir.
 * **Regla única de disparo:** la lógica del cursor de reproducción se extrajo a
   `zmacro::firstNotDue()` (`src/macro_utils.hpp`), usada por el bucle de playback, por

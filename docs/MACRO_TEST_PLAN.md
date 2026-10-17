@@ -75,29 +75,33 @@ esos tests), **CÓDIGO** (verificado por revisión de código, sin test aislado)
 | M-23 | Log acotado | Grabar un macro largo con spam y revisar `zbot_debug.log` | El archivo no crece sin control: al pasar 512 KB rota a `zbot_debug_prev.log` | Pendiente |
 | M-24 | Orden de hooks en reproducción | Reproducir y comparar el primer frame exacto de cada input | Los inputs caen en el mismo frame que al grabar (sin desfase de 1 frame) | Pendiente |
 | M-25 | Escala de UI ajustable | Tocar los botones "−"/"+" de "Escala UI" en Settings y luego "Restablecer" | La interfaz cambia de tamaño al momento y el valor se conserva entre sesiones | Pendiente |
-| M-26 | Divisoria de contadores (B-01) | Grabar unos clicks, poner un checkpoint, morir y reaparecer, y comparar en `zbot_debug.log` los campos `step=` y `prog=` de los logs `RECORD`/`EPOCH`/`FIRE` | `step=` y `prog=` coinciden en todo el run (incluido tras el checkpoint). Si difieren, hay que realinear contra `m_currentProgress` | Pendiente |
+| M-26 | Divisoria de contadores (B-01) | Grabar unos clicks, poner un checkpoint, morir y reaparecer, y comparar en `zbot_debug.log` los campos `step=` y `prog=` de los logs `RECORD`/`EPOCH`/`FIRE` | `prog=` avanza y `step=` se queda en 0 (medido en dispositivo). Se cambió todo el mod a `m_currentProgress` | ✅ Resuelto (medido en dispositivo) |
 
-### Cómo leer el diagnóstico B-01 (`step=` vs `prog=`)
+### Cómo leer el diagnóstico B-01 (`step=` vs `prog=`) — RESUELTO
 
-El mod indexa los inputs por `GJBaseGameLayer::m_currentStep` (entero). Pero **todos** los
-bots de referencia (Eclipse, zBot, xdBot, Silicate) indexan por `GJGameState::m_currentProgress`
-(también `unsigned int`, bindings 2.2081 línea 9013). Son dos miembros distintos.
+**Resultado medido en el dispositivo real (Galaxy Tab A8, GD 2.2081):**
 
-La razón por la que esto puede importar está en los bindings: `m_currentStep` vive en
-`GJBaseGameLayer` junto a la maquinaria de replay integrada del juego
-(`m_queuedButtons`, `m_queuedReplayButtons`, `RecordCheckpoint`), mientras que
-`m_currentProgress` vive dentro de `GJGameState`, que **es el estado que `CheckpointObject`
-guarda y restaura**. Es decir: al reaparecer desde un checkpoint, `m_currentProgress` se
-restaura con el estado y `m_currentStep` no forma parte de ese estado.
+```
+[PLAYBACK] tick frame=0 cursor=0/4 remaining=4     (repetido cientos de veces)
+[PLAYBACK] el frame del juego no avanza | frame=0 | currIndex=0
+```
 
-El caso **M-26** lo comprueba directamente en el log:
+`m_currentStep` se quedaba **clavado en 0** aunque el hook ejecutaba el `processCommands`
+original a ~60 Hz. Con `frame=0` para siempre, `firstNotDue` no encontraba ningún input
+vencido ⇒ el cursor no avanzaba ⇒ **el macro no disparaba nada**. Ese era el síntoma
+reportado ("el macro no funciona").
 
-* `step=4120 prog=4120` → los contadores coinciden; el uso actual de `m_currentStep` es
-  correcto y solo queda pendiente la interoperabilidad con macros `.gdr` de otros bots.
-* `step=4120 prog=1876` (con `hasCheckpoint=1`) → divergen tras el checkpoint; hay que
-  cambiar el índice de reproducción a `m_currentProgress`.
+También se descartó el frame advance como causa: el early-return está *encima* del log
+`tick`, así que si estuviera activo no se habría impreso ni una sola línea `tick`.
 
-Mientras no se compruebe en dispositivo, este punto queda **PENDIENTE**, no resuelto.
+**Corrección aplicada:** el índice de reproducción pasó a `GJGameState::m_currentProgress`
+(los 4 bots de referencia lo usan, y es el estado que `CheckpointObject` restaura).
+Aplicado en `recordmanager.cpp` (grabación y `purgeAfter`), `playbackmanager.cpp`
+(reproducción y realineado tras respawn) y `gui.cpp`.
+
+`step=` sigue apareciendo en los logs como contraste: se espera que siga en 0 mientras
+`prog=` avanza. Lo que hay que comprobar ahora (M-26 repetido) es que `prog=` **sí avanza**
+y que el macro reproduce.
 
 ## Criterios de aceptación P0
 
