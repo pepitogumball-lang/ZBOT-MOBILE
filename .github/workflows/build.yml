@@ -33,7 +33,9 @@ jobs:
       - name: Compilar y ejecutar tests de round-trip GDR
         run: |
           set -e
-          g++ -std=c++17 -Wall -Wextra -I /tmp/gdr/include \
+          # -isystem: el header de GDReplayFormat es de terceros; no queremos sus
+          # avisos (-Wreorder, -Wunused-parameter) en nuestro log de CI.
+          g++ -std=c++17 -Wall -Wextra -isystem /tmp/gdr/include \
             tests/test_gdr_roundtrip.cpp -o /tmp/test_gdr
           /tmp/test_gdr
 

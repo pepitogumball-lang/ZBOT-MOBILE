@@ -176,6 +176,7 @@ presentarse como "confirmadas en juego".
 | A-19 hardening de `fromFile`/`save` | ✅ Hecho | try/catch + validación + CI |
 | A-20 tests unitarios puros | ✅ Hecho | 14 casos, job de CI verde |
 | A-21 workflow: release solo en main | ✅ Hecho | Build manual ya no publica |
+| A-22 round-trip GDR real en tests | ✅ Hecho | `tests/test_gdr_roundtrip.cpp`, job de CI |
 | A-16 `MACRO_DIAGNOSTIC.md` reescrito | ✅ Hecho | Archivo |
 | A-03 semántica de cursor | ⚠️ Requiere test en juego | Documentado en test plan |
 
@@ -186,30 +187,36 @@ presentarse como "confirmadas en juego".
 ## Plan de trabajo priorizado
 
 ### Fase 1 — P0: Arreglar macro end-to-end
-1. Reescribir `shouldRecord` para eliminar estado `static` global y usar membresía de `GMacro`.
-2. Eliminar modificación de frames en `cleanInputs`; solo filtrar duplicados.
-3. Añadir null check en `renderStateSwitcher` antes de `createNewReplay`.
-4. Corregir clickbot offset (reproducir en el mismo frame).
-5. Cambiar `macrosDir()` en Android a `Mod::get()->getSaveDir() / "macros"`.
-6. Escribir tests unitarios para deduplicación, serialización round-trip y validación.
+1. ✅ Restaurar el build: `m_currentStep` en lugar de `m_totalFrames` (A-00).
+2. ✅ Reescribir `shouldRecord` para eliminar estado `static` global (A-02).
+3. ✅ Eliminar modificación de frames en `cleanInputs`; solo filtrar duplicados (A-01).
+4. ✅ Null check en `renderStateSwitcher` antes de `createNewReplay` (A-10).
+5. ✅ Corregir clickbot offset (A-06).
+6. ✅ `macrosDir()` a `getSaveDir() / "macros"` (A-05).
+7. ✅ tests unitarios (dedupe) + round-trip GDR (A-20/A-22).
 
 ### Fase 2 — P1: Estabilidad
-1. Validar rango de `speed` en speedhack; restaurar a 1.0 al desactivar/unload.
-2. Clamp del pitch de audio.
-3. Revisar `ignoreInput` y asegurar que `processCommands` original siempre se llame.
-4. Revisar logger para evitar flush por línea en builds normales.
+1. ✅ Clamp de `speed` en speedhack (A-07).
+2. ✅ Clamp del pitch de audio (A-08).
+3. ✅ `ignoreInput` eliminado; `processCommands` original siempre se llama (A-04).
+4. ✅ Logger: flush cada 10 líneas + `localtime_r` thread-safe (A-11).
+5. ✅ `shouldRecord` mantiene el estado de botones aun sin dedupe (A-17).
+6. ✅ Reset de fase del spam al pausar (A-18).
+7. ✅ Hardening de `fromFile`/`save` (try/catch, validación) (A-19).
 
 ### Fase 3 — P2: UI móvil
-1. Safe areas en bolita flotante.
-2. Separar "speedhack enabled" del valor de speed.
-3. Mensajes claros de error en guardado/carga.
+1. ✅ Safe areas en bolita flotante (A-12).
+2. ✅ Límites de speed/anti-spam consistentes entre UI y motor (A-13).
+3. ✅ Mensajes de error claros en guardado/carga (A-19).
+4. ✅ No borrar la grabación en curso al re-tocar Record.
 
 ### Fase 4 — P3/P4: SDK, CMake, CI, docs
-1. Actualizar `mod.json` a Geode 5.11.2 tras verificar compatibilidad.
-2. Revisar workflow de release (no publicar automáticamente sin validar).
-3. Escribir `docs/MACRO_TEST_PLAN.md` y `docs/RESEARCH_SOURCES.md`.
-4. Actualizar `MACRO_DIAGNOSTIC.md`.
-5. Actualizar `CHANGELOG.md` y `README_ZBOT.md` con estado real.
+1. ✅ `mod.json` a Geode 5.11.2 (A-09).
+2. ✅ Workflow: release solo en push a `main` (A-21).
+3. ✅ `docs/MACRO_TEST_PLAN.md` y `docs/RESEARCH_SOURCES.md` (A-16).
+4. ✅ `MACRO_DIAGNOSTIC.md` reescrito con causa raíz real.
+5. ✅ `CHANGELOG.md`, `README_ZBOT.md` y `about.md` actualizados.
+6. ✅ Eliminar código muerto (`utils.hpp`) (A-15).
 
 ---
 
