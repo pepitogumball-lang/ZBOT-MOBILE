@@ -244,14 +244,18 @@ void GUI::renderStateSwitcher() {
   if (ImGui::RadioButton("Idle", &currentState, NONE)) mgr->state = NONE;
   ImGui::SameLine();
   if (ImGui::RadioButton("Record", &currentState, RECORD)) {
-    mgr->state = RECORD;
-    auto* pl = PlayLayer::get();
-    if (pl && pl->m_level) {
-      mgr->createNewReplay(pl->m_level);
-      resetDedupeState(mgr);
-    } else {
-      mgr->state = NONE;
-      Notification::create("No hay nivel activo", NotificationIcon::Warning, 1.5f)->show();
+    // No recrear el replay si ya estamos grabando: tocar "Record" de nuevo
+    // (accidentalmente) no debe borrar la grabacion en curso.
+    if (mgr->state != RECORD) {
+      mgr->state = RECORD;
+      auto* pl = PlayLayer::get();
+      if (pl && pl->m_level) {
+        mgr->createNewReplay(pl->m_level);
+        resetDedupeState(mgr);
+      } else {
+        mgr->state = NONE;
+        Notification::create("No hay nivel activo", NotificationIcon::Warning, 1.5f)->show();
+      }
     }
   }
   ImGui::SameLine();
