@@ -206,7 +206,8 @@ class $modify(zPlayPL, PlayLayer) {
     PlayLayer::resetLevel();
 
     GMacro* mgr = GMacro::get();
-    auto* self = static_cast<zPlayGJBGL*>(this);
+    auto* gjbgl = static_cast<GJBaseGameLayer*>(this);
+    auto* self  = static_cast<zPlayGJBGL*>(gjbgl);
     auto* playLayer = PlayLayer::get();
 
     if (mgr->state == PLAYBACK && mgr->currentReplay && playLayer == this) {
