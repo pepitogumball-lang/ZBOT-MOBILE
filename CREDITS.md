@@ -22,11 +22,11 @@ behavioural requirements were **re-implemented independently** in this codebase.
 
 | Project | Author(s) | What we learned from it |
 |---|---|---|
-| **Eclipse Menu** | EclipseMenu team | GDR2 format usage, the "robust practice fix" playback approach, floating-icon mobile UI, per-platform macro storage. |
-| **xdBot** | ZiLko | Classic bot behaviour: physics-state playback, clickbot, known desync/first-jump bugs worth avoiding. |
+| **Eclipse Menu** | EclipseMenu team | GDR2 format usage, the "robust practice fix" playback approach, floating-icon mobile UI, per-platform macro storage. Also the `frameReal` label (`m_levelTime × TPS`) and `TPSBypass`, which recalculates `m_currentProgress` from elapsed time — both confirming that the frame index must be derived from game **time**, not from a raw physics-step count. |
+| **xdBot** | ZiLko | Classic bot behaviour: physics-state playback, clickbot, known desync/first-jump bugs worth avoiding. Crucially, its native frame index is `m_levelTime × getTPS()` (`global.cpp`), which is **independent of game speed** — the basis of our speedhack-desync fix — together with the "clock speedhack" that scales the scheduler `dt`, the same method we mirror. |
 | **zBot** | FigmentBoy | Practice-mode fixes, frame advance, speedhack, record/playback manager structure. |
-| **Silicate** | Silicate team | Frame counters and editor/play differences, trajectory recording, practice checkpoint handling. |
-| **OpenHack / Zephyrus** | Prevter | Auto-scaling UI by framebuffer resolution (the basis of our mobile UI scaling). |
+| **Silicate** | Silicate team | Frame counters and editor/play differences, trajectory recording, practice checkpoint handling. Its bot frame is `m_currentProgress / 2`, which pinned down the exact 2-per-tick scale of `m_currentProgress` relative to time (and validated our `m_levelTime × 240`). |
+| **OpenHack / Zephyrus** | Prevter | Auto-scaling UI by framebuffer resolution (the basis of our mobile UI scaling). Its Zephyrus replay engine indexes frames as `m_levelTime × 240` via `setGetFrameMethod` — a directly analogous replay design that we cross-checked. |
 | **EclipseMenu-Modification** | Rustring | Recorder/replay structure and keybind handling of a maintained Eclipse fork. |
 | **macro-tools** | gmd | The comparative catalog that maps which bot uses which playback method and macro format. |
 

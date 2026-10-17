@@ -63,10 +63,11 @@ class $modify(zRecGJBGL, GJBaseGameLayer) {
     bool p2 = !p1 && m_levelSettings && m_levelSettings->m_twoPlayerMode
          && this->m_gameState.m_isDualMode;
     
-    // CONTADOR DE FRAMES: m_currentProgress, no m_currentStep (ver el
-    // comentario largo en playbackmanager.cpp). Debe ser EXACTAMENTE el mismo
-    // contador que usa la reproduccion, o el macro no coincide nunca.
-    int frame = static_cast<int>(m_gameState.m_currentProgress);
+    // CONTADOR DE FRAMES: tiempo de juego (m_levelTime * 240), NO
+    // m_currentProgress. Ver el comentario completo en GMacro::getFrame().
+    // Debe ser EXACTAMENTE el mismo indice que usa la reproduccion, o el macro
+    // no coincide nunca.
+    int frame = GMacro::getFrame(this);
 
     if (!shouldRecord(mgr, down, button, p2, frame)) return;
 
@@ -80,7 +81,8 @@ class $modify(zRecGJBGL, GJBaseGameLayer) {
     ZLOG_INFO("RECORD", (down ? "◢" : "◤") 
       << (p2 ? "P2" : "P1") 
       << " | frame=" << (frame)
-      << " | step=" << m_currentStep
+      << " | lt=" << m_gameState.m_levelTime
+      << " step=" << m_currentStep
       << " prog=" << m_gameState.m_currentProgress
       << " | btn=" << button);
   }
@@ -149,9 +151,11 @@ class $modify(zRecPL, PlayLayer) {
     GMacro* mgr = GMacro::get();
     if (mgr->state != RECORD || !mgr->currentReplay) return;
 
-    // Mismo contador que handleButton: purgar por m_currentProgress para que
-    // coincida con el frame al que se graban los inputs nuevos.
-    int frame = static_cast<int>(m_gameState.m_currentProgress);
+    // Mismo contador que handleButton (GMacro::getFrame): purgar por tiempo de
+    // juego para que coincida con el frame al que se graban los inputs nuevos.
+    // m_levelTime forma parte de GJGameState, que GD resetea al morir y
+    // restaura al reaparecer desde un checkpoint.
+    int frame = GMacro::getFrame(this);
     mgr->currentReplay->purgeAfter(frame);
 
     mgr->resetButtonStateAfterFrame(frame);

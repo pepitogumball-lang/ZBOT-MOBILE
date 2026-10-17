@@ -3,9 +3,10 @@
 **Última actualización:** 17 oct 2026
 **Commit auditado:** `d402bf3` (punto de partida) → rama de trabajo `opencode/zbot-mobile-improvements-2026-10-16`
 
-> Este documento describe la causa raíz **real** del fallo de la macro, verificada
-> por el log de compilación de CI y por revisión de código. El diagnóstico original
-> (`m_currentProgress / 2`) está al final, archivado. **No** se ha re-aplicado.
+> Este documento describe las causas raíz **reales** del fallo de la macro: verificadas
+> por el log de compilación de CI, por el **log de un dispositivo real** (Galaxy Tab A8)
+> y por revisión de código. El diagnóstico original (`m_currentProgress / 2`) está al
+> final, archivado. **No** se ha re-aplicado.
 
 ---
 
@@ -103,12 +104,53 @@ desincronización. (La versión intermedia que sí lo reseteaba fue descartada.)
 
 ---
 
+## Causa raíz 6 (P0): `m_currentProgress` no es tiempo de juego (desincronización con speedhack)
+
+El usuario reportó: grabar la macro con el **speedhack a 0.25x** y reproducirla a **1x**
+desincronizaba el run — a 0.25x salía bien, a velocidad normal no. Los inputs se agolpaban
+al principio del nivel.
+
+**Por qué:** ZBOT implementa el speedhack escalando el dt del scheduler
+(`speedhack.cpp`: `CCScheduler::update(dt * speed)`), el mismo método que el *clock
+speedhack* de xdBot. `m_currentProgress` avanza por pasos de física, y cuántos pasos caben
+por segundo de juego depende del factor de velocidad, así que un frame grabado a 0.25x no
+designa la misma posición del nivel que a 1x.
+
+**Contraste con las referencias (análisis de código, commit a commit):**
+
+* **xdBot** (`global.cpp`): para sus macros nativos indexa `m_levelTime * getTPS()`; usa
+  `m_currentProgress` solo para macros ajenos.
+* **OpenHack / Zephyrus** (`replays.cpp`): `m_levelTime * 240` vía `setGetFrameMethod`.
+* **Eclipse** (`variables.cpp`): expone `frameReal = m_levelTime * TPS` además de `frame`;
+  su `TPSBypass.cpp` recalcula `m_currentProgress` a partir del tiempo transcurrido.
+* **silicate** (`updater.cpp`): usa `m_currentProgress / 2`, que confirma la escala de
+  2 pasos por tick de física a 240 Hz (equivale a `m_levelTime * 240`).
+
+Y el propio **formato GDR lo define así**: `gdr::Replay::frameForTime(t) = t * framerate`
+(con `framerate` 240 por defecto). Es decir, el indexado viejo por `m_currentProgress` era
+**no conforme** al formato.
+
+**Corrección aplicada:** una única función fuente de verdad, `GMacro::getFrame()` en
+`GMacro.cpp`, que devuelve `(int)(m_gameState.m_levelTime * getTps()) + frameOffset`, con
+`getTps()` = framerate del macro en curso (240 en nuestras grabaciones). `m_levelTime`
+acumula el dt **ya escalado** por el speedhack, de modo que un frame designa la misma
+posición del nivel a cualquier velocidad. Aplicado en grabación, reproducción, `purgeAfter`,
+realineado tras respawn, GUI y spam.
+
+**Consecuencia:** los `.gdr` de versiones anteriores —y los de bots que indexan por
+`m_currentProgress`— quedan obsoletos para este mod; hay que volver a grabar.
+
+---
+
 ## Nota de honestidad
 
-Todo lo anterior está respaldado por **compilación real en CI** y por **tests unitarios**.
-El comportamiento **en juego** (si grabar y reproducir observan `m_currentStep` en la
-misma fase, cómo se comporta con checkpoints y reinicios, etc.) **no está validado en un
-dispositivo Android**. Ese es el siguiente paso obligatorio: ver `docs/MACRO_TEST_PLAN.md`.
+Todo lo anterior está respaldado por **compilación real en CI**, por **tests unitarios** y,
+en los casos de las causas 0–5, por el **log de un dispositivo real** (Galaxy Tab A8): tras
+el arreglo de `m_currentStep` → `m_currentProgress` el macro ya grababa y reproducía a
+velocidad normal. La **Causa raíz 6** (indexado por tiempo de juego) está implementada y
+analizada contra cuatro bots de referencia y contra el propio formato GDR, pero su
+validación **en juego** sigue siendo el paso obligatorio pendiente: ver
+`docs/MACRO_TEST_PLAN.md`.
 
 ---
 

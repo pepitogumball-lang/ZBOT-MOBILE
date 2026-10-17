@@ -44,20 +44,12 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
     // aparece el clásico desfase de un frame entre grabar y reproducir.
     GJBaseGameLayer::processCommands(dt, isHalfTick, isLastTick);
 
-    // CONTADOR DE FRAMES: GJGameState::m_currentProgress, no m_currentStep.
-    //
-    // Medido en el dispositivo real (Galaxy Tab A8, GD 2.2081): mientras
-    // processCommands original se ejecutaba a ~60 Hz, m_currentStep se quedaba
-    // clavado en 0, así que el cursor nunca avanzaba y el macro no disparaba
-    // nada. Es coherente con su posición en los bindings: m_currentStep vive
-    // junto al hardcode de TAS/replay interno de GD (m_queuedButtons,
-    // m_replayRandSeed, RecordCheckpoint), no es el contador de juego normal.
-    //
-    // m_currentProgress es el contador que usan Eclipse (Bot.cpp), zBot,
-    // xdBot y Silicate, y es el estado que CheckpointObject guarda/restaura,
-    // así que grabar y reproducir ven el mismo valor tras un checkpoint.
-    int frame = static_cast<int>(m_gameState.m_currentProgress)
-              + mgr->frameOffset;
+    // CONTADOR DE FRAMES: tiempo de juego (m_levelTime * 240), NO
+    // m_currentProgress ni m_currentStep. El motivo completo —speedhack a
+    // 0.25x que desincronizaba la reproducción a 1x— está en el comentario de
+    // GMacro::getFrame(). Debe ser EXACTAMENTE el mismo índice que usa la
+    // grabación o el macro no coincide nunca.
+    int frame = GMacro::getFrame(this);
 
     //
     if (mgr->state == PLAYBACK && mgr->currentReplay) {
@@ -73,16 +65,17 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
         m_fields->currIndex   = 0;
         m_fields->clickBotIndex = 0; // Removed: ghost flag
 
-        // `step` vs `prog` + `hasCheckpoint` es la combinación decisiva para B-01:
-        // si al aparecer desde un checkpoint `prog` y `step` difieren, el cursor
-        // debe realinearse contra `m_currentProgress` (miembro de GJGameState, que
-        // es el estado que CheckpointObject restaura).
+        // `lt` (tiempo de juego) es ahora el índice real; `step`/`prog` quedan
+        // como contraste de diagnóstico. Al aparecer desde un checkpoint,
+        // m_levelTime —miembro de GJGameState, el estado que CheckpointObject
+        // restaura— vuelve al valor del checkpoint y el cursor se realinea con él.
         ZLOG_INFO("EPOCH", "cursor reset"
            " | frame=" << frame
            << " | inLevel=" << inLevel
            << " | inputs=" << mgr->currentReplay->inputs.size()
            << " | hasCheckpoint=" << (inLevel && pl->m_currentCheckpoint != nullptr)
-           << " | step=" << m_currentStep
+           << " | lt=" << m_gameState.m_levelTime
+           << " step=" << m_currentStep
            << " prog=" << m_gameState.m_currentProgress
            << " | epoch=" << mgr->playbackEpoch);
 
@@ -145,7 +138,8 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
              << " down=" << input.down
              << " p2=" << input.player2
              << " | curFrame=" << frame
-             << " | step=" << m_currentStep
+             << " | lt=" << m_gameState.m_levelTime
+             << " step=" << m_currentStep
              << " prog=" << m_gameState.m_currentProgress
              << " | idx=" << (m_fields->currIndex));
         }
@@ -191,7 +185,8 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
           + " cursor=" + std::to_string(m_fields->currIndex)
           + "/" + std::to_string((int)inputs.size())
           + " remaining=" + std::to_string(remaining)
-          + " | step=" + std::to_string(m_currentStep)
+          + " | lt=" + std::to_string(m_gameState.m_levelTime)
+          + " step=" + std::to_string(m_currentStep)
           + " prog=" + std::to_string(m_gameState.m_currentProgress)
           + " | canFire=" + std::to_string(canFire ? 1 : 0)
           + " dead=" + std::to_string(dbgDead ? 1 : 0)
@@ -237,9 +232,10 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
       }
       m_fields->spamWasOn = true;
 
-      double tps = (mgr->currentReplay && mgr->currentReplay->framerate > 0.0)
-        ? mgr->currentReplay->framerate
-        : 240.0;
+      // El frame del juego está indexado por tiempo de juego con el mismo TPS
+      // que getFrame (framerate del macro, o 240 sin macro), así que el ciclo
+      // del spam se mide en esas mismas unidades para que el CPS sea real.
+      double tps = GMacro::getTps();
       double cps = std::clamp(mgr->spamCPS, 0.1, 240.0);
       double cycle = tps / cps;
       if (cycle < 1.0) cycle = 1.0;
@@ -306,12 +302,10 @@ class $modify(zPlayPL, PlayLayer) {
       f->warnedStuck = false;
       f->tickCall = 0;
 
-      // Mismo contador que en processCommands: GJGameState::m_currentProgress
-      // (ver comentario en zPlayGJBGL::processCommands). Usar aquí el mismo
-      // valor que al reproducir es lo que garantiza que el cursor quede bien
-      // realineado tras un respawn o al aparecer desde un checkpoint.
-      int frame = static_cast<int>(self->m_gameState.m_currentProgress)
-                + mgr->frameOffset;
+      // Mismo contador que en processCommands (GMacro::getFrame). Usar aquí el
+      // mismo índice que al reproducir es lo que garantiza que el cursor quede
+      // bien realineado tras un respawn o al aparecer desde un checkpoint.
+      int frame = GMacro::getFrame(self);
       auto& inputs = mgr->currentReplay->inputs;
       // Misma regla que la grabación y el disparo: saltarse lo anterior al
       // frame actual, dejando el cursor justo donde empieza a reproducir.

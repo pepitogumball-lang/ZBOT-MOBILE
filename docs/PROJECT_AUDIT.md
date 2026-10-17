@@ -239,14 +239,21 @@ plenamente usable en Android, apoyándose en el estudio de bots de referencia
 | B-07 | Una grabación larga se perdía por completo si Android mataba el proceso | Comportamiento por defecto de Android (OOM/kill) | Copia periódica `<nivel>.autosave.gdr` (nunca pisa el macro real) | CÓDIGO (CI) |
 | B-08 | El log podía crecer sin límite y el `FIRE` por input generaba megas con spam | Revisión de `logger.hpp` / `playbackmanager.cpp` | Rotación a 512 KB + throttle de `FIRE` (24 primeros, luego 1/100) | CÓDIGO (CI) |
 | B-09 | UI de escritorio en un mod Android-first: radio-buttons diminutos, panel de tamaño fijo, bolita con umbral de 6 px, sin escalado por resolución | Uso real en móvil; ImGui de gd-imgui-cocos usa píxeles de framebuffer (getDisplayFactor()=1.0 fuera de macOS) | Escalado automático de estilo+fuente (`updateUiScale`, 1920 px = 1x, como OpenHack) + ajuste manual "Escala UI" en Settings; botones táctiles de ancho completo, panel responsive centrado, bolita/slop escalados, TouchExtraPadding en Android | CÓDIGO (CI) |
+| B-10 | **Grabar con el speedhack a 0.25x y reproducir a 1x desincronizaba todo**: el índice de frames (`m_currentProgress`) no es tiempo de juego, y el speedhack escala el `dt` del scheduler | Reporte del usuario en dispositivo + análisis de xdBot (`m_levelTime * getTPS()`), OpenHack (`m_levelTime * 240`), Eclipse (`frameReal`, `TPSBypass`) y silicate (`m_currentProgress / 2`); el propio GDR lo define en `frameForTime(t) = t * framerate` | Índice único por **tiempo de juego**, `GMacro::getFrame()` = `m_levelTime × framerate` (framerate del macro, 240 por defecto). Aplicado en grabación, reproducción, `purgeAfter`, realineado tras respawn, GUI y spam | CÓDIGO (CI) |
 
 ### Qué sigue pendiente (honestidad)
 
-* **En juego real:** todo lo anterior está compilado y con tests unitarios, pero **no**
-  verificado ejecutando Geometry Dash. Casos M-15..M-25 de `docs/MACRO_TEST_PLAN.md`.
-* En particular queda por confirmar en dispositivo la hipótesis de fase de
-  `m_currentProgress` (B-01) y si `frameOffset` debe ajustarse; el usuario dispone del
-  ajuste en la UI y del log `FIRE frame=… curFrame=…` para reportarlo.
+* **En juego real:** todo lo anterior está compilado y con tests unitarios. Tras el arreglo
+  `m_currentStep` → `m_currentProgress` el macro ya se midió **funcionando a velocidad
+  normal** en el dispositivo (Galaxy Tab A8). Falta validar en juego la **Causa raíz 6 /
+  B-10** (speedhack): casos **M-27 y M-28** de `docs/MACRO_TEST_PLAN.md`.
+* En particular queda por confirmar en dispositivo que `m_levelTime` se **resetee al morir**
+  y se **restaure al reaparecer desde un checkpoint** (de eso depende `purgeAfter` y el
+  realineado del cursor); el usuario dispone del campo `lt=` en los logs `RECORD`/`EPOCH`/
+  `FIRE` para reportarlo.
+* **Nota de compatibilidad:** los `.gdr` grabados con versiones anteriores (y los de bots
+  que indexan por `m_currentProgress`) quedan obsoletos para este mod; hay que volver a
+  grabar.
 
 ---
 

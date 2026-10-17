@@ -29,6 +29,11 @@ constexpr int GMACRO_GAP_MAX  = 60;
 constexpr int GMACRO_AUTOSAVE_MIN = 0;
 constexpr int GMACRO_AUTOSAVE_MAX = 3600;
 
+// TPS de referencia para indexar los frames del macro. Es el MISMO valor que
+// usan xdBot (getTPS() por defecto), Eclipse y OpenHack. Debe coincidir con
+// zReplay::framerate, que createNewReplay() fija a 240.0.
+constexpr double GMACRO_TPS = 240.0;
+
 // Escalado de la interfaz (Android). El backend ImGui de Geode
 // (gd-imgui-cocos) fija io.DisplaySize = frameSize * getDisplayFactor(), y en
 // Android getDisplayFactor() vale 1.0, es decir: las unidades de ImGui son
@@ -162,6 +167,18 @@ public:
     static GMacro* instance = new GMacro();
     return instance;
   }
+
+  // TPS efectivo del macro en curso: usa el framerate declarado por el .gdr
+  // (gdr::Replay::framerate, 240 por defecto) y cae a GMACRO_TPS si no hay
+  // macro cargado. Definido en GMacro.cpp.
+  static double getTps();
+
+  // Índice de frame del macro: FUENTE ÚNICA DE VERDAD para grabación y
+  // reproducción (definida en GMacro.cpp). Indexa por tiempo de JUEGO
+  // (GJGameState::m_levelTime * getTps()) para ser inmune al speedhack; ver el
+  // comentario largo en la definición. `layer` permite pasar el
+  // GJBaseGameLayer actual; sin argumento usa el PlayLayer en curso.
+  static int getFrame(GJBaseGameLayer* layer = nullptr);
 
   void saveSettings() {
     auto m = Mod::get();

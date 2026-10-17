@@ -58,7 +58,7 @@ esos tests), **CÓDIGO** (verificado por revisión de código, sin test aislado)
 | M-06 | Dual mode | Grabar en nivel dual (P1 y P2), reproducir | P1 y P2 reciben sus inputs respectivos | Pendiente |
 | M-07 | Frame advance | Activar frame advance, avanzar un frame | El juego avanza exactamente un frame; no se congela | Pendiente |
 | M-08 | Pausar y reanudar | Pausar durante playback, reanudar | El playback continúa desde el frame correcto | Pendiente |
-| M-09 | Speedhack | Activar speedhack 2x, grabar y reproducir | La velocidad cambia; la macro sigue sincronizada | Pendiente |
+| M-09 | Speedhack 2x | Activar speedhack 2x, grabar y reproducir a 2x | La velocidad cambia; la macro sigue sincronizada | Pendiente |
 | M-10 | Archivo corrupto | Intentar cargar un `.gdr` truncado | Error claro, no crashea el juego | Pendiente |
 | M-11 | Guardado al salir | Salir de nivel sin completar (`perfectRunOnly` off) | El macro se guarda al salir | Pendiente |
 | M-12 | No grabar sin nivel | Activar RECORD en menú principal | No crashea; mensaje claro o simplemente no graba | Pendiente |
@@ -76,6 +76,8 @@ esos tests), **CÓDIGO** (verificado por revisión de código, sin test aislado)
 | M-24 | Orden de hooks en reproducción | Reproducir y comparar el primer frame exacto de cada input | Los inputs caen en el mismo frame que al grabar (sin desfase de 1 frame) | Pendiente |
 | M-25 | Escala de UI ajustable | Tocar los botones "−"/"+" de "Escala UI" en Settings y luego "Restablecer" | La interfaz cambia de tamaño al momento y el valor se conserva entre sesiones | Pendiente |
 | M-26 | Divisoria de contadores (B-01) | Grabar unos clicks, poner un checkpoint, morir y reaparecer, y comparar en `zbot_debug.log` los campos `step=` y `prog=` de los logs `RECORD`/`EPOCH`/`FIRE` | `prog=` avanza y `step=` se queda en 0 (medido en dispositivo). Se cambió todo el mod a `m_currentProgress` | ✅ Resuelto (medido en dispositivo) |
+| M-27 | **Grabar a 0.25x y reproducir a 1x** (el bug reportado) | Activar speedhack **0.25x**, grabar un run corto con varios clicks, guardar, quitar el speedhack (1x), cargar el macro y reproducir | El run se reproduce sincronizado a 1x: los inputs caen en las **mismas posiciones del nivel** que al grabar; no se agolpan al principio | ⏳ Pendiente (prueba en juego real) |
+| M-28 | Contraste de índice por tiempo | En `zbot_debug.log`, tras M-27, comparar el campo `lt=` (tiempo de juego) y `frame=` nuevo con el viejo `prog=`: `frame` debe ser ≈ `prog / 2` y `lt` debe crecer de forma estable independientemente de la velocidad | `frame ≈ prog/2`; `lt` es coherente con el tiempo del nivel | ⏳ Pendiente (prueba en juego real) |
 
 ### Cómo leer el diagnóstico B-01 (`step=` vs `prog=`) — RESUELTO
 
@@ -95,13 +97,15 @@ También se descartó el frame advance como causa: el early-return está *encima
 `tick`, así que si estuviera activo no se habría impreso ni una sola línea `tick`.
 
 **Corrección aplicada:** el índice de reproducción pasó a `GJGameState::m_currentProgress`
-(los 4 bots de referencia lo usan, y es el estado que `CheckpointObject` restaura).
-Aplicado en `recordmanager.cpp` (grabación y `purgeAfter`), `playbackmanager.cpp`
-(reproducción y realineado tras respawn) y `gui.cpp`.
+(el estado que `CheckpointObject` restaura), aplicado en `recordmanager.cpp` (grabación y
+`purgeAfter`), `playbackmanager.cpp` (reproducción y realineado tras respawn) y `gui.cpp`.
+Eso hizo que el macro ya grabara y reprodujera **a velocidad normal**.
 
-`step=` sigue apareciendo en los logs como contraste: se espera que siga en 0 mientras
-`prog=` avanza. Lo que hay que comprobar ahora (M-26 repetido) es que `prog=` **sí avanza**
-y que el macro reproduce.
+**Superado a su vez por el indexado por tiempo de juego (M-27/M-28):** `m_currentProgress`
+seguía siendo un contador de pasos de física, no de tiempo, y desincronizaba al grabar con
+speedhack. Ahora el índice es `m_levelTime × framerate` (`GMacro::getFrame()`). En los logs,
+`frame=` es el índice nuevo, `lt=` el tiempo de juego, y `step=`/`prog=` quedan solo como
+contraste de diagnóstico: se espera que sigan avanzando pero que `frame ≈ prog / 2`.
 
 ## Criterios de aceptación P0
 

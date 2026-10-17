@@ -8,6 +8,25 @@
 
 **Sincronización grabación/reproducción**
 
+* **FIX BLOQUEANTE (P0) — grabar con speedhack a 0.25x y reproducir a 1x desincronizaba
+  todo (el run moría al poco de empezar):** el contador de frames era
+  `GJGameState::m_currentProgress`, que **no es tiempo de juego**. ZBOT implementa el
+  speedhack escalando el dt del scheduler (`CCScheduler::update(dt * speed)`, exactamente
+  el mismo método que el *clock speedhack* de xdBot), así que `m_currentProgress` avanza un
+  número de pasos distinto según la velocidad; los inputs grabados a 0.25x quedaban
+  indexados en frames que **no** corresponden a la misma posición del nivel al reproducir a
+  1x, y se agolpaban al principio. Ahora **todo** el mod indexa por **tiempo de juego**
+  (`GJGameState::m_levelTime × framerate`) mediante una única función fuente de verdad,
+  `GMacro::getFrame()`. `m_levelTime` acumula el dt **ya escalado** por el speedhack, de
+  modo que un frame designa la misma posición del nivel a cualquier velocidad. Es además
+  **lo que define el propio formato GDR** (`gdr::Replay::frameForTime(t) = t × framerate`,
+  con `framerate` 240 por defecto) y lo que usan xdBot (macros nativos), OpenHack (Zephyrus)
+  y Eclipse (`frameReal`). Centralizado en grabación, reproducción, `purgeAfter`, realineado
+  tras respawn y GUI, y con el TPS del spam alineado al mismo índice.
+  **Nota:** los `.gdr` guardados con versiones anteriores —y los de bots que indexan por
+  `m_currentProgress`— quedan obsoletos para este mod: **hay que volver a grabar**.
+  Diagnóstico obtenido del log real en dispositivo y del análisis de los bots de referencia;
+  la corrección en sí sigue **PENDIENTE de prueba en juego real** hasta el siguiente build.
 * **FIX BLOQUEANTE (P0) — el macro no disparaba nada en dispositivo:** el contador de
   frames del mod era `GJBaseGameLayer::m_currentStep`, que en el **dispositivo real**
   (Galaxy Tab A8, GD 2.2081) se queda **clavado en 0** mientras el juego corre. El log
@@ -18,6 +37,8 @@
   Aplicado en grabación, reproducción, `purgeAfter`, realineado tras respawn y GUI.
   Diagnóstico extraído de un log real en dispositivo; la corrección en sí sigue
   **PENDIENTE de prueba en juego real** hasta el siguiente build.
+  **Superado** por el fix de indexado por tiempo de juego (arriba): `m_currentProgress`
+  seguía sin ser válido frente al speedhack.
 * **FIX (P0):** El `processCommands` original del motor ahora se ejecuta **antes** de
   inyectar los inputs del macro. Es el mismo orden que usan EclipseMenu, zBot y
   ToastyReplay: al leer el contador en la misma fase que durante la grabación
