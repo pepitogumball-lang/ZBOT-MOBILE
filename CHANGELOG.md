@@ -2,7 +2,8 @@
 
 ### v1.8.0
 * **FIX BLOQUEANTE (build):** El mod **no compilaba** desde el commit `d402bf3`. Se usaba `GJGameState::m_totalFrames`, un miembro que **no existe** en los bindings de GD 2.2081. Se corrigió usando `GJBaseGameLayer::m_currentStep`. Sin este arreglo nada funcionaba: el mod ni siquiera cargaba. Verificado por compilación real en CI.
-* **FIX CRÍTICO (P0):** `cleanInputs()` en `replay.hpp` ya no modifica los frames de los inputs grabados. Antes desplazaba `in.frame` según `minHoldFrames`/`minGapFrames`, rompiendo la sincronización frame-perfecta entre grabación y reproducción.
+* **FIX CRÍTICO (P0):** `cleanInputs()` en `replay.hpp` ya no modifica los frames de los inputs grabados. Antes desplazaba `in.frame` según `minHoldFrames`/`minGapFrames`, rompiendo la sincronización frame-perfecta entre grabación y reproducción. Además, `save()` ahora respeta el ajuste **"Deduplicar inputs"** (antes deduplicaba siempre).
+* **UI (P2):** Los ajustes **Min hold / Min gap** quedan marcados como **inactivos** (sin efecto), ya que desplazar frames es incompatible con la grabación frame-perfecta. Se conservan por compatibilidad de ajustes.
 * **FIX CRÍTICO (P0):** El estado de deduplicación (`shouldRecord`) ahora usa miembros de `GMacro` en lugar de variables `static` de archivo, eliminando la pérdida del primer input en nuevas sesiones de grabación.
 * **FIX (P1):** `shouldRecord` mantiene siempre el estado de botones (`p1ButtonHeld`/`p2ButtonHeld`), incluso con la deduplicación desactivada, para no perder los "release" al reiniciar el nivel.
 * **FIX CRÍTICO (P0):** Clickbot reproduce el sonido en el mismo frame del input (sin el antiguo offset de 100 ms).

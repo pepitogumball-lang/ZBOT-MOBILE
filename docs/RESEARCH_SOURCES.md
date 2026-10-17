@@ -17,7 +17,7 @@
 | Geode publishing guidelines | https://docs.geode-sdk.org/mods/guidelines/ | 2026-10-16 | Actual | Reglas del Index, no reemplazar releases, código fuente disponible |
 | Geode publishing | https://docs.geode-sdk.org/mods/publishing/ | 2026-10-16 | Actual | Proceso de publicación, assets, versionado |
 
-**Decisión:** El mod.json declara Geode 5.8.0, pero la estable actual es v5.11.2. Se debe actualizar a 5.11.2 tras verificar compilación. No cambiar a 2.209 sin verificar bindings.
+**Decisión (APLICADA):** El mod.json declaraba Geode 5.8.0; ya se actualizó a **5.11.2** y se verificó por compilación real en CI. No cambiar a 2.209 sin verificar bindings.
 
 ---
 
@@ -63,7 +63,7 @@
 
 | Fuente | URL | Fecha consultada | Qué se obtuvo |
 |---|---|---|---|
-| Repositorio principal | https://github.com/pepitogumball-lang/ZBOT-MOBILE | 2026-10-16 | Rama `main`, 22 commits, sin releases publicadas |
+| Repositorio principal | https://github.com/pepitogumball-lang/ZBOT-MOBILE | 2026-10-16 | Rama `main`, 22 commits. *(Estado al 17 oct: existe un release `v1.8.0`; ver `docs/PROJECT_AUDIT.md`.)* |
 | mod.json público | https://github.com/pepitogumball-lang/ZBOT-MOBILE/blob/main/mod.json | 2026-10-16 | Geode 5.8.0, GD 2.2081, versión v1.7.0 |
 | README_ZBOT.md | https://github.com/pepitogumball-lang/ZBOT-MOBILE/blob/main/README_ZBOT.md | 2026-10-16 | Afirma macros precisas, GDR, speedhack, clickbot de audio, UI móvil |
 | MACRO_DIAGNOSTIC.md | https://github.com/pepitogumball-lang/ZBOT-MOBILE/blob/main/MACRO_DIAGNOSTIC.md | 2026-10-16 | Acusa `m_currentProgress / 2` (línea ya no existe en el código actual) |
