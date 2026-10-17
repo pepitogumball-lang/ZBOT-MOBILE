@@ -34,6 +34,39 @@ A macro utility for Geometry Dash on Android, providing frame-accurate recording
 Macros are saved as `.gdr` files (GDR format, msgpack-encoded) in:
 `Mod::get()->getSaveDir() / "macros"`
 
+## Building
+
+The mod is built by the Geode SDK (CMake). Dependencies (`GDReplayFormat`,
+`gd-imgui-cocos`) are pinned and fetched automatically by CPM:
+
+```sh
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+```
+
+CI (`.github/workflows/build.yml`) builds for **Android32** and **Android64** on
+every push and on manual dispatch (Actions → Build ZBOT-MOBILE → Run workflow).
+
+## Tests
+
+Pure macro logic (`src/macro_utils.hpp`) has no Geode dependency, so it is unit
+tested in `tests/test_macro_utils.cpp`:
+
+```sh
+g++ -std=c++17 -Wall -Wextra -I src tests/test_macro_utils.cpp -o /tmp/test_macro
+/tmp/test_macro
+```
+
+CI runs these automatically in the **Unit tests** job.
+
+## Validation status
+
+* **Compilation**: verified in CI for Android32 + Android64.
+* **Unit tests**: verified in CI (pure logic).
+* **In-game behaviour**: **not yet verified on a physical Android device.** The
+  frame semantics of recording vs. playback, checkpoints and restarts still need
+  a manual pass — see `docs/MACRO_TEST_PLAN.md` for the checklist.
+
 ## Credits
 
 This project is maintained by **pepitogumball-lang**. Special thanks to the Geode SDK team and the creators of the GDR format.

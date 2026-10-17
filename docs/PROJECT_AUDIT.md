@@ -39,6 +39,13 @@ juego queda **pendiente de validación manual** (ver `docs/MACRO_TEST_PLAN.md`).
 | `29006856617` | `7aec330` | work branch | ❌ failure — llave faltante en `cleanInputs` + `m_totalFrames` |
 | `39007179561` | `094cc07` | work branch | ❌ failure — `m_totalFrames` (causa raíz) |
 | `39007462340` | `2e417e6` | work branch | ✅ **success** (Android32 + Android64 + package) |
+| `39007940379` | `90e980b` | work branch | ✅ **success** (+ job **Unit tests**) |
+
+**Importante (proceso):** el job `Publish Release` del workflow corría también en
+`workflow_dispatch`, de modo que un build manual desde una rama de trabajo llegó a
+publicar un release `v1.8.0`. Se corrigió el workflow para que el release **solo** se
+publique en push a `main`; en el run `39007940379` el job aparece como `skipped`. No se
+borró ni sobrescribió ningún release o tag existente.
 
 La causa raíz del build roto se leyó directamente del log del run `39007179561`:
 
@@ -161,9 +168,14 @@ presentarse como "confirmadas en juego".
 | A-10 null check en `renderStateSwitcher` | ✅ Hecho | Revisión de código + CI |
 | A-11 logger bufferizado | ✅ Hecho | Revisión de código + CI |
 | A-12 safe area bolita | ✅ Hecho | Revisión de código + CI |
-| A-13 separar speed enabled/valor | ⏳ Pendiente | — |
-| A-14 manejo offline updatecheck | ⏳ Pendiente | — |
-| A-15 código muerto `utils.hpp` | ⏳ Pendiente | — |
+| A-13 separar speed enabled/valor | ✅ Hecho | Constantes GMACRO_SPEED_*; UI y app coinciden |
+| A-14 manejo offline updatecheck | ✅ Revisado | `!res.ok()` retorna sin crash (sin cambios) |
+| A-15 código muerto `utils.hpp` | ✅ Hecho | Archivo eliminado |
+| A-17 estado de botones sin dedupe | ✅ Hecho | `shouldRecord` siempre mantiene held |
+| A-18 reset de fase del spam al pausar | ✅ Hecho | `spamWasOn=false` en el gate |
+| A-19 hardening de `fromFile`/`save` | ✅ Hecho | try/catch + validación + CI |
+| A-20 tests unitarios puros | ✅ Hecho | 14 casos, job de CI verde |
+| A-21 workflow: release solo en main | ✅ Hecho | Build manual ya no publica |
 | A-16 `MACRO_DIAGNOSTIC.md` reescrito | ✅ Hecho | Archivo |
 | A-03 semántica de cursor | ⚠️ Requiere test en juego | Documentado en test plan |
 

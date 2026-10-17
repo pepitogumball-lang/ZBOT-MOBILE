@@ -8,23 +8,32 @@
 
 ## Pruebas automatizadas (funciones puras)
 
-Estas pruebas pueden ejecutarse sin Geometry Dash, compilar código aislado de `replay.hpp` y `recordmanager.cpp`:
+Desde v1.8.0 la lógica pura está en `src/macro_utils.hpp` (sin dependencias de Geode)
+y se prueba en `tests/test_macro_utils.cpp`. Se ejecuta localmente con:
+
+```sh
+g++ -std=c++17 -Wall -Wextra -I src tests/test_macro_utils.cpp -o /tmp/test_macro && /tmp/test_macro
+```
+
+y en CI en el job **Unit tests**. La columna "Estado" distingue **AUTO** (cubierto por
+esos tests), **CÓDIGO** (verificado por revisión de código, sin test aislado) y
+**PENDIENTE** (sin cobertura todavía).
 
 | ID | Caso | Entrada | Resultado esperado | Estado |
 |---|---|---|---|---|
-| T-01 | Macro vacía | `inputs = {}` | `save()` debe rechazar o generar archivo vacío válido; `fromFile()` no debe crashear | Pendiente |
-| T-02 | Un solo click (press/release) | `addInput(10, 1, false, true)`, `addInput(15, 1, false, false)` | Round-trip: `importData(exportData())` conserva ambos eventos con frames exactos | Pendiente |
-| T-03 | Varias pulsaciones rápidas | Inputs en frames 10, 12, 14, 16 (misma tecla) | Todos los eventos conservados; no se descarta ninguno por deduplicación | Pendiente |
-| T-04 | Hold largo | `addInput(10, 1, false, true)`, `addInput(100, 1, false, false)` | Press en frame 10, release en frame 100; `cleanInputs` no desplaza frames | Pendiente |
-| T-05 | Múltiples eventos mismo frame | `addInput(50, 1, false, true)`, `addInput(50, 2, false, true)` | Ambos eventos conservados en frame 50 | Pendiente |
-| T-06 | Input frame 0 | `addInput(0, 1, false, true)` | Frame 0 válido; playback debe ejecutarlo en el primer frame | Pendiente |
-| T-07 | Macro larga | 1000+ inputs con frames crecientes | Round-trip sin pérdida; orden preservado | Pendiente |
-| T-08 | Archivo truncado | Bytes parciales de un `.gdr` válido | `fromFile()` debe retornar nullptr o error explícito, no crashear | Pendiente |
-| T-09 | Frames no monotónicos | Inputs con frames 100, 50, 75 | `cleanInputs` ordena por frame; no hay retrocesos | Pendiente |
-| T-10 | Botón fuera de rango | `addInput(10, 99, false, true)` | `cleanInputs` conserva el evento pero marca para validación | Pendiente |
-| T-11 | `minHoldFrames`/`minGapFrames` | Valores > 0 aplicados | **NUNCA** modificar `in.frame`; solo filtrar duplicados | Pendiente |
-| T-12 | Deduplicación | Dos eventos idénticos (mismo frame, btn, p2, down) | Solo se conserva uno | Pendiente |
-| T-13 | `purgeAfter(frame)` | Inputs con frames >= frame eliminados | Inputs anteriores se conservan; posteriores se eliminan | Pendiente |
+| T-01 | Macro vacía | `inputs = {}` | No crash; utilidades no rompen con lista vacía | AUTO (vacío) |
+| T-02 | Un solo click (press/release) | frames 10 y 15 | Ambos eventos con frames exactos | AUTO (dedupe) |
+| T-03 | Varias pulsaciones rápidas | frames 10,12,14,16 | Todos conservados | AUTO |
+| T-04 | Hold largo | press 10, release 100 | Frames no se desplazan | AUTO |
+| T-05 | Múltiples eventos mismo frame | frame 50, botones 1 y 2 | Ambos conservados | AUTO |
+| T-06 | Input frame 0 | frame 0 | Frame 0 válido | AUTO |
+| T-07 | Macro larga | 1000+ inputs | Sin pérdida; orden preservado | PENDIENTE |
+| T-08 | Archivo truncado | bytes parciales | `fromFile()` retorna nullptr, no crashea | CÓDIGO (try/catch) |
+| T-09 | Frames no monotónicos | 100, 50, 75 | Se ordenan; sin retrocesos | AUTO |
+| T-10 | Botón fuera de rango | botón 99 | Se conserva sin corromper dedupe | AUTO |
+| T-11 | `minHoldFrames`/`minGapFrames` | valores > 0 | **NUNCA** modifican `in.frame` | AUTO |
+| T-12 | Deduplicación | eventos idénticos repetidos | Solo se conserva uno | AUTO |
+| T-13 | `purgeAfter(frame)` | frames >= frame | Anteriores se conservan, posteriores se eliminan | AUTO |
 
 ## Pruebas manuales en Android (checklist para el usuario)
 

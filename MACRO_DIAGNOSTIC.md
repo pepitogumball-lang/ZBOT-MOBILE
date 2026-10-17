@@ -1,55 +1,107 @@
 # Diagnóstico Técnico: Fallos de Estabilidad en Macros (G-Macro Android)
 
-**Estado: OBSOLETO — el diagnóstico anterior a `d402bf3` está abajo, archivado. La causa raíz real se describe más abajo.**
+**Última actualización:** 17 oct 2026
+**Commit auditado:** `d402bf3` (punto de partida) → rama de trabajo `opencode/zbot-mobile-improvements-2026-10-16`
+
+> Este documento describe la causa raíz **real** del fallo de la macro, verificada
+> por el log de compilación de CI y por revisión de código. El diagnóstico original
+> (`m_currentProgress / 2`) está al final, archivado. **No** se ha re-aplicado.
 
 ---
 
-## Diagnóstico actual (16 oct 2026, commit `d402bf3`)
+## Causa raíz 0 (BLOQUEANTE): el mod no compilaba
 
-El bug original (`m_currentProgress / 2`) fue corregido en un commit anterior que reemplazó `m_currentProgress` por `m_gameState.m_totalFrames`. Sin embargo, la macro seguía sin funcionar correctamente. La causa raíz real identificada durante la auditoría de código es:
+El commit `d402bf3` (titulado *"Fix macro stability by using totalFrames"*) introdujo
+`GJGameState::m_totalFrames`, un miembro que **no existe** en los bindings de GD 2.2081.
+El compilador lo confirmó de forma explícita en el CI:
 
-### Causa raíz 1 (P0): `cleanInputs()` modifica los frames de los inputs grabados
+```
+src/playbackmanager.cpp:40:46: error: no member named 'm_totalFrames' in 'GJGameState';
+did you mean 'm_totalTime'?
+src/recordmanager.cpp:54:52: error: no member named 'm_totalFrames' in 'GJGameState'
+src/gui.cpp:301:55: error: no member named 'm_totalFrames' in 'GJGameState'
+```
 
-En `src/replay.hpp`, `cleanInputs()` desplazaba `in.frame` según `minHoldFrames`/`minGapFrames`. Esto significa que los frames almacenados en el archivo `.gdr` **no coinciden** con los frames reales en los que se capturaron los inputs. Cuando el playback compara `inputs[currIndex].frame <= m_total_frames`, los frames desplazados causan desincronización.
+Como el mod no compilaba, **nada** funcionaba: no era un problema de sincronización
+de macro, era que el `.geode` no se podía construir ni cargar. Cualquier análisis de
+la macro sobre esa base era irrelevante.
 
-**Corrección aplicada:** La sección de `cleanInputs()` que modificaba frames fue eliminada. Ahora solo filtra duplicados y ordena por frame.
+**Miembro real:** `GJGameState` tiene `double m_totalTime`, `unsigned int m_currentProgress`
+y `unsigned int m_commandIndex`, pero **no** `m_totalFrames`. El contador de pasos de
+física correcto es `int GJBaseGameLayer::m_currentStep`. Es el mismo valor que usa
+Geometry Dash internamente (`PlayerButtonCommand::m_step`) y el que usan otros mods de
+replay (`GatoBot`, `GD-Replay-Mod`).
 
-### Causa raíz 2 (P0): Variables `static` en `shouldRecord()` persisten entre sesiones
-
-En `src/recordmanager.cpp`, las variables `static` `s_lastFrame`, `s_lastDown`, `s_lastButton`, `s_lastP2` nunca se reseteaban correctamente entre sesiones de grabación. Solo se reseteaban en `PlayLayer::init` cuando `state == RECORD`, pero no al cambiar de nivel o detener/reiniciar grabación desde la UI.
-
-**Corrección aplicada:** El estado de deduplicación se movió a miembros de `GMacro` (`dedupeLastFrame`, `dedupeLastDown`, `dedupeLastButton`, `dedupeLastP2`) y se resetea explícitamente con `resetDedupeState(mgr)`.
-
-### Causa raíz 3 (P0): Clickbot con offset de 100 ms
-
-En `src/playbackmanager.cpp`, el clickbot reproducía sonidos con `frame + framerate * 0.1` (100 ms antes del input real), desincronizando el audio de la acción visual.
-
-**Corrección aplicada:** El offset se eliminó; el sonido se reproduce en el mismo frame del input.
-
-### Causa raíz 4 (P0): Ruta hardcodeada de macros en Android
-
-En `src/replay.hpp`, `macrosDir()` en Android usaba `/storage/emulated/0/Android/media/com.geode.launcher/game/geode/macros`, que puede no ser accesible con scoped storage en Android 10+.
-
-**Corrección aplicada:** `macrosDir()` ahora usa `Mod::get()->getSaveDir() / "macros"` en todas las plataformas.
-
-### Causa raíz 5 (P0): Cursor de playback atascado
-
-En `src/playbackmanager.cpp`, si `m_totalFrames` no avanza (frame advance sin `doAdvance`, juego pausado), el cursor se quedaba en 0 para siempre. Se añadió una guardia que detecta 120 frames sin progreso y resetea el cursor.
+**Corrección aplicada:** todas las referencias a `m_gameState.m_totalFrames` (~4) se
+sustituyeron por `m_currentStep`. Verificado por compilación real en CI
+(Android32 + Android64).
 
 ---
 
-## Diagnóstico original (obsoleto, commit anterior a `d402bf3`)
+## Causa raíz 1 (P0): `cleanInputs()` modificaba los frames grabados
+
+En `src/replay.hpp`, `cleanInputs()` desplazaba `in.frame` según `minHoldFrames`/`minGapFrames`.
+Los frames guardados en el `.gdr` dejaban de coincidir con los frames reales de captura,
+de modo que el playback disparaba inputs en momentos distintos a los grabados.
+
+**Corrección aplicada:** se eliminó el desplazamiento. Ahora solo ordena por frame y
+descarta eventos redundantes (no-ops). La lógica se extrajo a `src/macro_utils.hpp`
+(`dedupeNoOps`, `sortByFrame`) y está cubierta por tests unitarios.
+
+## Causa raíz 2 (P0): estado de deduplicación en variables `static`
+
+En `shouldRecord()` las variables `s_lastFrame`/`s_lastDown`/`s_lastButton`/`s_lastP2`
+eran `static` de archivo y persistían entre sesiones de grabación.
+
+**Corrección aplicada:** el estado pasó a miembros de `GMacro`
+(`dedupeLastFrame`, `dedupeLastDown`, `dedupeLastButton`, `dedupeLastP2`) y se resetea
+con `resetDedupeState(mgr)`. Además, `shouldRecord` ahora mantiene **siempre** el estado
+`p1ButtonHeld`/`p2ButtonHeld` (aunque la deduplicación esté desactivada), para no perder
+los "release" al reiniciar el nivel.
+
+## Causa raíz 3 (P0): clickbot con offset
+
+El clickbot reproducía el sonido con un offset de ~100 ms respecto al input.
+
+**Corrección aplicada:** el sonido se reproduce en el mismo frame del input.
+
+## Causa raíz 4 (P0): ruta de macros hardcodeada en Android
+
+`macrosDir()` usaba una ruta absoluta bajo `/storage/emulated/0/...`, problemática con
+scoped storage en Android 10+.
+
+**Corrección aplicada:** `macrosDir()` usa `Mod::get()->getSaveDir() / "macros"`.
+
+## Causa raíz 5 (P1): cursor de playback atascado
+
+Si el frame del juego no avanza (pausa o frame advance sin avance), el cursor de playback
+podía quedar detenido.
+
+**Corrección aplicada (revisada):** se dejó como **diagnóstico de solo lectura**: se
+registra una advertencia en el log tras 120 ciclos sin avance, pero **no** se resetea el
+cursor automáticamente. Resetearlo re-ejecutaría inputs ya pasados y empeoraría la
+desincronización. (La versión intermedia que sí lo reseteaba fue descartada.)
+
+---
+
+## Nota de honestidad
+
+Todo lo anterior está respaldado por **compilación real en CI** y por **tests unitarios**.
+El comportamiento **en juego** (si grabar y reproducir observan `m_currentStep` en la
+misma fase, cómo se comporta con checkpoints y reinicios, etc.) **no está validado en un
+dispositivo Android**. Ese es el siguiente paso obligatorio: ver `docs/MACRO_TEST_PLAN.md`.
+
+---
+
+## Diagnóstico original (OBSOLETO — archivado por referencia)
 
 En `recordmanager.cpp` y `playbackmanager.cpp`, el frame se calculaba así:
+
 ```cpp
 int frame = static_cast<int>(this->m_gameState.m_currentProgress) / 2;
 ```
-`m_currentProgress` no es un contador de frames fiable para macros de alta precisión en la versión 2.2081. Dividir por 2 es una asunción arbitraria que causa desincronización inmediata si el framerate del juego no coincide exactamente con lo esperado.
 
-**Estado:** Ya corregido en el commit `d402bf3` ("Refactor: Fix macro stability by using totalFrames").
-
----
-
-## Recomendación
-
-Este archivo se archiva para referencia histórica. Para diagnóstico actual, consultar `docs/PROJECT_AUDIT.md` y `docs/MACRO_TEST_PLAN.md`.
+`m_currentProgress` no es un contador de frames fiable para macros de alta precisión en
+2.2081, y dividir entre 2 es una asunción arbitraria. Este diagnóstico **nunca se confirmó**
+como causa raíz y **no debe volver a aplicarse**. El campo nunca fue la causa bloqueante;
+el verdadero problema era que el mod no compilaba (ver Causa raíz 0).
