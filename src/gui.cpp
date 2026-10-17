@@ -645,6 +645,17 @@ void GUI::renderSpeedTab() {
     ImGui::TextDisabled("(speed = 0 -> speedhack inactivo)");
   }
 
+  // Frame offset
+  int offset = mgr->frameOffset;
+  if (ImGui::InputInt("Frame Offset", &offset)) {
+    offset = std::clamp(offset, -10, 10);
+    mgr->frameOffset = offset;
+    spDirty = true;
+  }
+  if (ImGui::IsItemHovered()) {
+    ImGui::SetTooltip("Ajuste fino para corregir desincronización (-10 a +10)");
+  }
+
   if (spDirty) mgr->saveSettings();
 }
 

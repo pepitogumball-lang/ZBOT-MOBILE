@@ -37,7 +37,7 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
     }
     mgr->doAdvance = false;
 
-    int frame = m_currentStep;
+    int frame = m_currentStep + mgr->frameOffset;
 
     //
     if (mgr->state == PLAYBACK && mgr->currentReplay) {

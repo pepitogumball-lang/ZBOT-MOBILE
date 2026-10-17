@@ -85,6 +85,9 @@ public:
   int  dedupeLastButton  = -1;
   bool dedupeLastP2      = false;
 
+  // Offset de frames para mejorar compatibilidad con otros bots (ajuste fino)
+  int  frameOffset = 0;
+
   //
   char loadName[128] = "";
   zReplay* currentReplay = nullptr;
@@ -156,6 +159,7 @@ public:
     m->setSavedValue<bool> ("spamOnlyDuringPlay", spamOnlyDuringPlay);
     m->setSavedValue<bool> ("spamRecordToMacro", spamRecordToMacro);
     m->setSavedValue<bool> ("spamDual",      spamDual);
+    m->setSavedValue<int64_t>("frameOffset",    frameOffset);
   }
 
   void loadSettings() {
@@ -200,6 +204,9 @@ public:
     spamRecordToMacro = m->getSavedValue<bool> ("spamRecordToMacro", spamRecordToMacro);
 // Additional configuration options
     spamDual      = m->getSavedValue<bool> ("spamDual",      spamDual);
+    frameOffset    = static_cast<int>(m->getSavedValue<int64_t>("frameOffset", frameOffset));
+    if (frameOffset < -10) frameOffset = -10;
+    if (frameOffset > 10) frameOffset = 10;
   }
 
   void playSound(bool p2, int button, bool down);
