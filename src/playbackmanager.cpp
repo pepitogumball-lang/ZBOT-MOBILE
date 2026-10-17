@@ -19,7 +19,9 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
     bool spamHeld[2]  = { false, false };
     int spamAnchor  = -1;
     bool spamWasOn   = false;
-    int framesWithoutProgress = 0; // guarda cuántos frames sin que el cursor avance
+    int lastSeenFrame = -1;        // diagnóstico de frame congelado
+    int sameFrameCount = 0;
+    bool warnedStuck = false;
   };
 
 // Core playback and spam logic loop
@@ -89,24 +91,22 @@ class $modify(zPlayGJBGL, GJBaseGameLayer) {
         GJBaseGameLayer::handleButton(input.down, input.button, !input.player2);
       }
 
-      // Guardia contra cursor atascado: si el cursor no avanza durante
-      // muchos frames en PLAYBACK, algo está mal (frame advance sin avance,
-      // juego pausado, etc.). Se resetea para evitar bloqueo permanente.
-      int cursorBefore = m_fields->currIndex;
-      if (m_fields->currIndex > cursorBefore) {
-        m_fields->framesWithoutProgress = 0;
-      } else if (mgr->state == PLAYBACK && mgr->currentReplay
-                 && !mgr->currentReplay->inputs.empty()) {
-        m_fields->framesWithoutProgress++;
-        if (m_fields->framesWithoutProgress > 120) { // ~2s a 60 FPS
-          ZLOG_WARN("PLAYBACK", "cursor atascado, reseteando"
-             " | frame=" << frame
-             << " | currIndex=" << m_fields->currIndex
-             << " | totalInputs=" << mgr->currentReplay->inputs.size());
-          m_fields->currIndex = 0;
-          m_fields->clickBotIndex = 0;
-          m_fields->framesWithoutProgress = 0;
+      // Diagnóstico (no correctivo): si el frame del juego no avanza durante
+      // muchos ciclos en PLAYBACK, es señal de pausa o de frame advance sin
+      // avance. NO se toca el cursor: hacerlo re-ejecutaría inputs ya pasados.
+      if (frame == m_fields->lastSeenFrame) {
+        m_fields->sameFrameCount++;
+        if (m_fields->sameFrameCount > 120 && !m_fields->warnedStuck) {
+          ZLOG_WARN("PLAYBACK", "el frame del juego no avanza"
+             " (pausa o frame advance sin avance)"
+             << " | frame=" << frame
+             << " | currIndex=" << m_fields->currIndex);
+          m_fields->warnedStuck = true;
         }
+      } else {
+        m_fields->lastSeenFrame = frame;
+        m_fields->sameFrameCount = 0;
+        m_fields->warnedStuck = false;
       }
 
       if (frame % 60 == 0) {

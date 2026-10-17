@@ -190,4 +190,9 @@ public:
   void playSound(bool p2, int button, bool down);
 };
 
+// Deduplicación de grabación (definidas en recordmanager.cpp, declaradas aquí
+// para que gui.cpp y otros TUs puedan resetear el estado al iniciar grabación).
+bool shouldRecord(GMacro* mgr, bool down, int button, bool p2, int frame);
+void resetDedupeState(GMacro* mgr);
+
 #endif

@@ -116,22 +116,19 @@ void GUI::renderFloatingBall() {
 
   ImGuiIO& io = ImGui::GetIO();
 
-  // Safe area offset para Android (notch, barra de sistema)
-  float safeLeft = 0.f, safeTop = 0.f, safeRight = 0.f, safeBottom = 0.f;
+  // Safe area offset para Android (notch, barra de sistema).
+  // Se aplica un margen mínimo uniforme para que la bolita no quede pegada
+  // al borde ni oculta por elementos del sistema. No se consultan APIs de
+  // safe-area específicas para mantener compatibilidad entre versiones del SDK.
+  float safeMargin = 0.f;
 #ifdef GEODE_IS_ANDROID
-  if (auto* scene = cocos2d::CCDirector::sharedDirector()->getRunningScene()) {
-    if (auto* safeArea = scene->getChildByTag(999)) {
-      (void)safeArea;
-    }
-    // Asumimos un margen mínimo razonable en Android
-    safeLeft = 8.f; safeTop = 8.f; safeRight = 8.f; safeBottom = 8.f;
-  }
+  safeMargin = 8.f;
 #endif
 
-  float minVisibleX = safeLeft;
-  float minVisibleY = safeTop;
-  float maxVisibleX = io.DisplaySize.x - kBallSize - safeRight;
-  float maxVisibleY = io.DisplaySize.y - kBallSize - safeBottom;
+  float minVisibleX = safeMargin;
+  float minVisibleY = safeMargin;
+  float maxVisibleX = io.DisplaySize.x - kBallSize - safeMargin;
+  float maxVisibleY = io.DisplaySize.y - kBallSize - safeMargin;
 
   ballPos.x = std::max(minVisibleX, std::min(ballPos.x, maxVisibleX));
   ballPos.y = std::max(minVisibleY, std::min(ballPos.y, maxVisibleY));
